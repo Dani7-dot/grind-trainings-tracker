@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>GRIND — Tägliches Training</title>
+<meta name="description" content="Tracke deine täglichen Übungen und sieh deinen Fortschritt." />
+<meta name="theme-color" content="#0b0c0e" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="GRIND" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&family=Archivo+Expanded:wght@700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="noise-overlay" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-bolt">⚡</span><span class="brand-word">GRIND</span><span class="brand-dot">.</span>
+    </div>
+    <button class="icon-btn" id="settingsBtn" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.6a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2.4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06A2 2 0 1 1 6.44 3.9l.06.06a1.65 1.65 0 0 0 1.82.33H8.4a1.65 1.65 0 0 0 1-1.51V2.4a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21.6a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.6"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="app" class="app">
+
+  <!-- ===== HEUTE ===== -->
+  <section id="view-today" class="view view-active" data-view="today">
+    <div class="today-head">
+      <div class="today-date" id="todayDate">—</div>
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 120 120">
+          <circle class="ring-track" cx="60" cy="60" r="52"/>
+          <circle class="ring-progress" id="ringProgress" cx="60" cy="60" r="52"/>
+        </svg>
+        <div class="ring-label">
+          <span id="ringPercent">0%</span>
+          <small>Tagesziel</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="cards" id="exerciseCards"></div>
+
+    <div class="save-toast" id="saveToast">Gespeichert ✓</div>
+  </section>
+
+  <!-- ===== VERLAUF ===== -->
+  <section id="view-history" class="view" data-view="history">
+    <h1 class="view-title">Verlauf</h1>
+    <div class="stat-row" id="historyStatRow"></div>
+    <div class="history-list" id="historyList"></div>
+    <p class="empty-hint" id="historyEmpty" hidden>Noch keine Einträge. Leg heute los! 💪</p>
+  </section>
+
+  <!-- ===== ANALYSE ===== -->
+  <section id="view-analysis" class="view" data-view="analysis">
+    <h1 class="view-title">Analyse</h1>
+    <div class="stat-row" id="analysisStatRow"></div>
+
+    <div class="panel">
+      <h2 class="panel-title">Letzte 14 Tage — Tageserfüllung</h2>
+      <div id="chartDaily" class="chart-wrap"></div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title">Pro Übung diese Woche</h2>
+      <div id="perExercise" class="per-exercise"></div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title">Übererfüllung (letzte 30 Tage)</h2>
+      <div id="overachieve" class="overachieve"></div>
+    </div>
+  </section>
+
+</main>
+
+<nav class="bottom-nav" id="bottomNav">
+  <button class="nav-btn nav-active" data-target="today">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    <span>Heute</span>
+  </button>
+  <button class="nav-btn" data-target="history">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15.5" rx="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span>Verlauf</span>
+  </button>
+  <button class="nav-btn" data-target="analysis">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    <span>Analyse</span>
+  </button>
+</nav>
+
+<!-- ===== SETTINGS SHEET ===== -->
+<div class="sheet-backdrop" id="settingsBackdrop">
+  <div class="sheet" id="settingsSheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Einstellungen</h2>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Tägliche Erinnerung</div>
+        <div class="setting-sub">Benachrichtigt dich, falls du noch nicht getrackt hast</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="reminderToggle" />
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+      </label>
+    </div>
+
+    <div class="setting-row" id="reminderTimeRow">
+      <div class="setting-label">Uhrzeit</div>
+      <input type="time" id="reminderTime" value="19:00" />
+    </div>
+
+    <p class="setting-note" id="notifNote"></p>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Alle Daten löschen</div>
+        <div class="setting-sub">Setzt die App komplett zurück</div>
+      </div>
+      <button class="btn-danger" id="resetBtn">Löschen</button>
+    </div>
+
+    <button class="btn-primary" id="closeSettings">Fertig</button>
+  </div>
+</div>
+
+<!-- ===== DAY DETAIL MODAL ===== -->
+<div class="sheet-backdrop" id="dayBackdrop">
+  <div class="sheet" id="daySheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" id="dayTitle">—</h2>
+    <div id="dayDetailBody" class="day-detail-body"></div>
+    <button class="btn-primary" id="closeDay">Schließen</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
