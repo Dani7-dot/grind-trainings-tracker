@@ -114,7 +114,14 @@ h1,h2,h3{ font-family: var(--font-display); letter-spacing: .01em; margin: 0; }
 .ring-label small{ font-size:9px; color: var(--text-faint); text-transform:uppercase; letter-spacing:.08em; margin-top:1px; }
 
 /* ============ EXERCISE CARDS ============ */
+.section-label{
+  font-family: var(--font-body); font-weight:700; font-size:12px;
+  text-transform:uppercase; letter-spacing:.06em; color: var(--text-dim);
+  margin: 26px 2px 12px;
+}
+.section-label span{ color: var(--text-faint); font-weight:500; text-transform:none; letter-spacing:0; margin-left:6px; }
 .cards{ display:flex; flex-direction:column; gap:12px; }
+.card.is-extra .card-mid{ margin-top:12px; }
 .card{
   background: linear-gradient(155deg, var(--bg-card) 0%, var(--bg-card-2) 100%);
   border: 1px solid var(--line-soft);

@@ -4,20 +4,24 @@
    CONFIG
 ============================================================ */
 const EXERCISES = [
-  { id: 'pushups',  name: 'Liegestütze', type: 'strength', sets: 3, reps: 10, unit: 'Wdh.' },
-  { id: 'dumbbell', name: 'Kurzhanteln', type: 'strength', sets: 3, reps: 15, unit: 'Wdh.' },
-  { id: 'squats',   name: 'Kniebeuge',   type: 'strength', sets: 3, reps: 20, unit: 'Wdh.' },
-  { id: 'situps',   name: 'Situps',      type: 'strength', sets: 3, reps: 15, unit: 'Wdh.' },
-  { id: 'running',  name: 'Laufen',      type: 'cardio',   target: 10, unit: 'km' },
+  { id: 'pushups',  name: 'Liegestütze',    type: 'strength', hasTarget: true,  sets: 3, reps: 10, unit: 'Wdh.' },
+  { id: 'dumbbell', name: 'Kurzhanteln',    type: 'strength', hasTarget: true,  sets: 3, reps: 15, unit: 'Wdh.' },
+  { id: 'squats',   name: 'Kniebeuge',      type: 'strength', hasTarget: true,  sets: 3, reps: 20, unit: 'Wdh.' },
+  { id: 'situps',   name: 'Situps',         type: 'strength', hasTarget: true,  sets: 3, reps: 15, unit: 'Wdh.' },
+  { id: 'joggen',   name: 'Joggen',         type: 'cardio',   hasTarget: false, unit: 'km' },
+  { id: 'fahrrad',  name: 'Fahrrad fahren', type: 'cardio',   hasTarget: false, unit: 'km' },
 ];
-EXERCISES.forEach(e => { e.target = e.type === 'strength' ? e.sets * e.reps : e.target; });
+EXERCISES.forEach(e => { e.target = e.hasTarget ? e.sets * e.reps : undefined; });
+const GOAL_EXERCISES = EXERCISES.filter(e => e.hasTarget);
+const EXTRA_EXERCISES = EXERCISES.filter(e => !e.hasTarget);
 
 const ICONS = {
   pushups:  '<svg viewBox="0 0 24 24" fill="none"><path d="M2 16h20M6 16v-5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5M9 9V7M15 9V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   dumbbell: '<svg viewBox="0 0 24 24" fill="none"><path d="M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3.2" y="8.5" width="3.2" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="17.6" y="8.5" width="3.2" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/><path d="M2 10.5v3M22 10.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   squats:   '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="4.3" r="1.9" fill="currentColor"/><path d="M12 7v4.5l-4 6.5M12 11.5l4 6.5M7.5 12.5h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   situps:   '<svg viewBox="0 0 24 24" fill="none"><path d="M3 17.5h3.5l2.7-6 4 2 2.6-4.5H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="4.5" cy="14" r="1.4" fill="currentColor"/></svg>',
-  running:  '<svg viewBox="0 0 24 24" fill="none"><circle cx="14.5" cy="4.6" r="1.8" fill="currentColor"/><path d="M8.5 21l2.7-5.3-2-2.2 1-4.2 3.3 2.1 3-1.1 2.2 3.1M7.7 12.4l3.1-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  joggen:   '<svg viewBox="0 0 24 24" fill="none"><circle cx="14.5" cy="4.6" r="1.8" fill="currentColor"/><path d="M8.5 21l2.7-5.3-2-2.2 1-4.2 3.3 2.1 3-1.1 2.2 3.1M7.7 12.4l3.1-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  fahrrad:  '<svg viewBox="0 0 24 24" fill="none"><circle cx="5.5" cy="17.5" r="3.2" stroke="currentColor" stroke-width="1.7"/><circle cx="18.5" cy="17.5" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 17.5 9.5 9h5l3.5 8.5M9.5 9 8 6.5h-2M9.5 9l3 5h5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
 const WEEKDAYS = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
@@ -31,8 +35,14 @@ const LOGS_KEY = 'grind_logs_v1';
 const SETTINGS_KEY = 'grind_settings_v1';
 
 function loadLogs() {
-  try { return JSON.parse(localStorage.getItem(LOGS_KEY)) || {}; }
-  catch { return {}; }
+  let logs;
+  try { logs = JSON.parse(localStorage.getItem(LOGS_KEY)) || {}; }
+  catch { logs = {}; }
+  // migrate old 'running' entries (pre-rename) to 'joggen'
+  Object.values(logs).forEach(day => {
+    if (day && day.running != null && day.joggen == null) { day.joggen = day.running; delete day.running; }
+  });
+  return logs;
 }
 function saveLogs(logs) { localStorage.setItem(LOGS_KEY, JSON.stringify(logs)); }
 
@@ -58,11 +68,11 @@ function dayRatio(dateKey, ex) {
   return getVal(dateKey, ex.id) / ex.target;
 }
 function dayPercent(dateKey) {
-  const ratios = EXERCISES.map(ex => dayRatio(dateKey, ex));
+  const ratios = GOAL_EXERCISES.map(ex => dayRatio(dateKey, ex));
   return (ratios.reduce((a, b) => a + b, 0) / ratios.length) * 100;
 }
 function dayComplete(dateKey) {
-  return EXERCISES.every(ex => dayRatio(dateKey, ex) >= 1);
+  return GOAL_EXERCISES.every(ex => dayRatio(dateKey, ex) >= 1);
 }
 function hasEntry(dateKey) {
   return !!LOGS[dateKey] && Object.values(LOGS[dateKey]).some(v => v > 0);
@@ -101,14 +111,12 @@ function renderExerciseCards() {
   const key = todayKey();
   const wrap = $('#exerciseCards');
   wrap.innerHTML = '';
-  EXERCISES.forEach(ex => {
+  GOAL_EXERCISES.forEach(ex => {
     const val = getVal(key, ex.id);
     const ratio = val / ex.target;
     const pct = Math.round(ratio * 100);
-    const card = el('div', 'card' + (ex.type === 'cardio' ? ' is-cardio' : ''));
-    const targetLabel = ex.type === 'strength'
-      ? `Ziel: ${ex.sets}× ${ex.reps} (${ex.target} Wdh.)`
-      : `Ziel: ${ex.target} km`;
+    const card = el('div', 'card');
+    const targetLabel = `Ziel: ${ex.sets}× ${ex.reps} (${ex.target} Wdh.)`;
     card.innerHTML = `
       <div class="card-top">
         <div style="display:flex; gap:12px; align-items:flex-start;">
@@ -135,11 +143,43 @@ function renderExerciseCards() {
   });
 }
 
+function renderExtraCards() {
+  const key = todayKey();
+  const wrap = $('#extraCards');
+  wrap.innerHTML = '';
+  EXTRA_EXERCISES.forEach(ex => {
+    const val = getVal(key, ex.id);
+    const card = el('div', 'card is-cardio is-extra');
+    card.innerHTML = `
+      <div class="card-top">
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <div class="card-icon">${ICONS[ex.id]}</div>
+          <div>
+            <div class="card-name">${ex.name}</div>
+            <div class="card-target">Kein Tagesziel — nur getrackt</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-mid">
+        <div class="stepper">
+          <button class="step-btn" data-act="minus" aria-label="Weniger">−</button>
+          <div class="step-value"><b>${val}</b><small>${ex.unit}</small></div>
+          <button class="step-btn" data-act="plus" aria-label="Mehr">+</button>
+        </div>
+      </div>
+    `;
+    card.querySelector('[data-act="plus"]').addEventListener('click', () => bump(ex, stepAmount(ex)));
+    card.querySelector('[data-act="minus"]').addEventListener('click', () => bump(ex, -stepAmount(ex)));
+    wrap.appendChild(card);
+  });
+}
+
 function bump(ex, delta) {
   const key = todayKey();
   const cur = getVal(key, ex.id);
   setVal(key, ex.id, cur + delta);
   renderExerciseCards();
+  renderExtraCards();
   updateRing();
   flashSaved();
 }
@@ -184,7 +224,7 @@ function renderHistory() {
     }
     const pct = Math.round(dayPercent(key));
     const row = el('div', 'history-row');
-    const dots = EXERCISES.map(ex => {
+    const dots = GOAL_EXERCISES.map(ex => {
       const r = dayRatio(key, ex);
       const cls = r >= 1.5 ? 'over' : r >= 1 ? 'hit' : r > 0 ? 'partial' : '';
       return `<span class="dot ${cls}"></span>`;
@@ -249,17 +289,17 @@ function renderDayDetailBody() {
   body.innerHTML = '';
   EXERCISES.forEach(ex => {
     const val = getVal(key, ex.id);
-    const pct = Math.round((val / ex.target) * 100);
-    const targetLabel = ex.type === 'strength' ? `${ex.sets}× ${ex.reps} Ziel` : `${ex.target} km Ziel`;
+    const pct = ex.hasTarget ? Math.round((val / ex.target) * 100) : null;
+    const detailLine = ex.hasTarget ? `${ex.sets}× ${ex.reps} Ziel · ${pct}%` : 'Kein Ziel — nur getrackt';
     const row = el('div', 'day-item');
     row.innerHTML = `
       <div>
         <div class="dn">${ex.name}</div>
-        <div class="dt">${targetLabel} · ${pct}%</div>
+        <div class="dt">${detailLine}</div>
       </div>
       <div class="stepper">
         <button class="step-btn" data-act="minus">−</button>
-        <div class="dv ${pct >= 100 ? 'over' : ''}" style="min-width:54px;text-align:center;">${val}<small style="display:block;font-family:var(--font-body);font-size:9px;color:var(--text-faint);">${ex.unit}</small></div>
+        <div class="dv ${pct !== null && pct >= 100 ? 'over' : ''}" style="min-width:54px;text-align:center;">${val}<small style="display:block;font-family:var(--font-body);font-size:9px;color:var(--text-faint);">${ex.unit}</small></div>
         <button class="step-btn" data-act="plus">+</button>
       </div>
     `;
@@ -284,6 +324,7 @@ function renderAnalysis() {
 
   renderDailyChart();
   renderPerExercise();
+  renderExtraStats();
   renderOverachieve(overDays);
 }
 
@@ -322,7 +363,7 @@ function renderPerExercise() {
   const week = rangeKeys(7);
   const wrap = $('#perExercise');
   wrap.innerHTML = '';
-  EXERCISES.forEach(ex => {
+  GOAL_EXERCISES.forEach(ex => {
     const total = week.reduce((s, k) => s + getVal(k, ex.id), 0);
     const targetWeek = ex.target * 7;
     const pct = Math.min(100, Math.round((total / targetWeek) * 100));
@@ -331,6 +372,21 @@ function renderPerExercise() {
       <div class="pe-head"><b>${ex.name}</b><span>${total} / ${targetWeek} ${ex.unit}</span></div>
       <div class="pe-bar"><i style="width:${pct}%"></i></div>
     `;
+    wrap.appendChild(row);
+  });
+}
+
+function renderExtraStats() {
+  const week = rangeKeys(7);
+  const month = rangeKeys(30);
+  const wrap = $('#extraStats');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  EXTRA_EXERCISES.forEach(ex => {
+    const weekTotal = week.reduce((s, k) => s + getVal(k, ex.id), 0);
+    const monthTotal = month.reduce((s, k) => s + getVal(k, ex.id), 0);
+    const row = el('div', 'pe-row');
+    row.innerHTML = `<div class="pe-head"><b>${ex.name}</b><span>${weekTotal} ${ex.unit} diese Woche · ${monthTotal} ${ex.unit} (30 Tage)</span></div>`;
     wrap.appendChild(row);
   });
 }
@@ -353,6 +409,7 @@ function renderOverachieve(overDays) {
 ============================================================ */
 function refreshAll() {
   renderExerciseCards();
+  renderExtraCards();
   updateRing();
   renderHistory();
   renderAnalysis();

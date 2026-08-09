@@ -1,4 +1,4 @@
-const CACHE = 'grind-v1';
+const CACHE = 'grind-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -23,16 +23,14 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  // Network-first so updates show up immediately when online; falls back to cache when offline.
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const network = fetch(event.request)
-        .then(res => {
-          if (res.ok) caches.open(CACHE).then(c => c.put(event.request, res.clone()));
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(event.request, res.clone()));
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 
