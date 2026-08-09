@@ -14,6 +14,7 @@ const ICONS = {
   fahrrad:  '<svg viewBox="0 0 24 24" fill="none"><circle cx="5.5" cy="17.5" r="3.2" stroke="currentColor" stroke-width="1.7"/><circle cx="18.5" cy="17.5" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M5.5 17.5 9.5 9h5l3.5 8.5M9.5 9 8 6.5h-2M9.5 9l3 5h5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   water:    '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3s6 6.5 6 11a6 6 0 1 1-12 0c0-4.5 6-11 6-11Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>',
   custom:   '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+  weight:   '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.7"/><path d="M9 13a3 3 0 0 1 6 0M12 5V3M9.5 3.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
 };
 const ICON_KEYS = ['pushups', 'dumbbell', 'squats', 'situps', 'joggen', 'fahrrad', 'water', 'custom'];
 
@@ -39,6 +40,7 @@ const LOGS_KEY = 'grind_logs_v1';
 const SETTINGS_KEY = 'grind_settings_v1';
 const EXERCISES_KEY = 'grind_exercises_v1';
 const WATER_KEY = 'grind_water_v1';
+const WEIGHT_KEY = 'grind_weight_v1';
 
 function loadLogs() {
   let logs;
@@ -57,6 +59,12 @@ function loadWater() {
   catch { return {}; }
 }
 function saveWater(w) { localStorage.setItem(WATER_KEY, JSON.stringify(w)); }
+
+function loadWeight() {
+  try { return JSON.parse(localStorage.getItem(WEIGHT_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveWeightData(w) { localStorage.setItem(WEIGHT_KEY, JSON.stringify(w)); }
 
 function recalcTargets(list) {
   list.forEach(ex => { if (ex.hasTarget) ex.target = ex.sets * ex.reps; });
@@ -111,6 +119,7 @@ let EXERCISES = loadExercises();
 saveExercises(EXERCISES);
 let LOGS = loadLogs();
 let WATER = loadWater();
+let WEIGHT = loadWeight();
 let SETTINGS = loadSettings();
 
 function goalExercises() { return EXERCISES.filter(e => e.hasTarget); }
@@ -168,6 +177,20 @@ function removeWaterEntry(dateKey, id) {
   saveWater(WATER);
 }
 
+function getWeight(dateKey) {
+  return typeof WEIGHT[dateKey] === 'number' ? WEIGHT[dateKey] : null;
+}
+function setWeight(dateKey, val) {
+  if (val == null) { delete WEIGHT[dateKey]; }
+  else { WEIGHT[dateKey] = Math.round(Math.max(0, val) * 10) / 10; }
+  saveWeightData(WEIGHT);
+}
+function latestWeightBefore(dateKey) {
+  const keys = Object.keys(WEIGHT).filter(k => k <= dateKey).sort();
+  if (!keys.length) return null;
+  return WEIGHT[keys[keys.length - 1]];
+}
+
 /* ============================================================
    DATE HELPERS
 ============================================================ */
@@ -221,6 +244,40 @@ function promptSetValue(ex, dateKey) {
   refreshAll();
   if (key !== todayKey()) { renderDayDetailBody(); renderDayWaterBody(); }
 }
+
+function promptSetWeight(dateKey) {
+  const key = dateKey || todayKey();
+  const current = getWeight(key) ?? latestWeightBefore(key) ?? '';
+  const label = key === todayKey() ? 'heute' : `am ${keyToDate(key).getDate()}.${keyToDate(key).getMonth() + 1}.`;
+  const input = prompt(`Gewicht für ${label} eingeben (kg):`, current === '' ? '' : fmtNum(current));
+  if (input === null) return;
+  if (String(input).trim() === '') { setWeight(key, null); refreshAll(); if (key !== todayKey()) renderDayWeightBody(); return; }
+  const num = parseFloat(String(input).replace(',', '.'));
+  if (isNaN(num) || num <= 0) { alert('Bitte eine gültige, positive Zahl eingeben.'); return; }
+  setWeight(key, num);
+  refreshAll();
+  if (key !== todayKey()) renderDayWeightBody();
+}
+
+function renderWeightToday() {
+  const key = todayKey();
+  const val = getWeight(key);
+  $('#weightIcon').innerHTML = ICONS.weight;
+  $('#weightBig').textContent = val != null ? fmtNum(val) : '—';
+  const weekAgoKey = dateKeyOf(addDays(new Date(), -7));
+  const prev = latestWeightBefore(weekAgoKey);
+  if (val == null) {
+    $('#weightTrendNote').textContent = 'Noch nicht erfasst — antippen zum Eintragen';
+  } else if (prev != null) {
+    const diff = Math.round((val - prev) * 10) / 10;
+    const sign = diff > 0 ? '+' : '';
+    $('#weightTrendNote').textContent = `${sign}${fmtNum(diff)} kg zur letzten Woche`;
+  } else {
+    $('#weightTrendNote').textContent = 'Antippen zum Aktualisieren';
+  }
+}
+$('#weightValueDisplay').addEventListener('click', () => promptSetWeight());
+$('#weightCard').addEventListener('click', e => { if (!e.target.closest('#weightValueDisplay')) promptSetWeight(); });
 
 function renderExerciseCards() {
   const key = todayKey();
@@ -453,6 +510,7 @@ function openDayDetail(key) {
   $('#dayTitle').textContent = `${WEEKDAYS[d.getDay()]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`;
   renderDayDetailBody();
   renderDayWaterBody();
+  renderDayWeightBody();
   openSheet('#dayBackdrop');
 }
 function renderDayDetailBody() {
@@ -502,6 +560,22 @@ function renderDayWaterBody() {
   }
   wrap.appendChild(log);
 }
+function renderDayWeightBody() {
+  const key = activeDayKey;
+  const wrap = $('#dayWeightBody');
+  const val = getWeight(key);
+  wrap.innerHTML = `
+    <h3 class="day-weight-title">⚖️ Gewicht — ${val != null ? fmtNum(val) + ' kg' : 'nicht erfasst'}</h3>
+    <div class="day-item">
+      <div>
+        <div class="dn">Gewicht bearbeiten</div>
+        <div class="dt">Tippen zum Eintragen oder Löschen</div>
+      </div>
+      <div class="dv" data-act="editWeight" style="cursor:pointer;">${val != null ? fmtNum(val) : '—'}<small style="display:block;font-family:var(--font-body);font-size:9px;color:var(--text-faint);">kg</small></div>
+    </div>
+  `;
+  wrap.querySelector('[data-act="editWeight"]').addEventListener('click', () => promptSetWeight(key));
+}
 
 /* ============================================================
    ANALYSIS VIEW
@@ -515,11 +589,15 @@ function renderAnalysis() {
     statBox(best, 'Beste Streak') +
     statBox(overDays.length, 'Über 100% (30T)');
 
+  renderHeatmap();
   renderDailyChart();
+  renderExerciseTrend();
   renderPerExercise();
   renderExtraStats();
   renderWaterStats();
   renderWaterChart();
+  renderWeightStats();
+  renderWeightChart();
   renderBestStats();
   renderOverachieve(overDays);
 }
@@ -547,6 +625,129 @@ function renderDailyChart() {
 
   $('#chartDaily').innerHTML = `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:150px; display:block;">${bars}</svg>`;
 }
+
+/* ---- generic line/trend chart, used for per-exercise trend and weight ---- */
+function buildLineChartSVG(points, opts) {
+  opts = opts || {};
+  const color = opts.color || 'var(--lime)';
+  const zeroBased = opts.zeroBased !== false;
+  const unit = opts.unit || '';
+  const valued = points.map((p, i) => ({ ...p, i })).filter(p => p.val != null);
+  if (!valued.length) {
+    return '<div class="oa-empty">Noch keine Daten für diesen Zeitraum.</div>';
+  }
+  const w = 320, h = 140, padL = 8, padR = 8, padT = 14, padB = 10;
+  const vals = valued.map(p => p.val);
+  let minV = zeroBased ? 0 : Math.min(...vals);
+  let maxV = Math.max(...vals);
+  if (maxV === minV) maxV = minV + 1;
+  if (zeroBased) {
+    maxV = maxV * 1.12;
+  } else {
+    const pad = (maxV - minV) * 0.18 || 1;
+    minV -= pad; maxV += pad;
+  }
+  const n = points.length;
+  const stepX = n > 1 ? (w - padL - padR) / (n - 1) : 0;
+  const xFor = i => padL + i * stepX;
+  const yFor = v => padT + (1 - (v - minV) / (maxV - minV)) * (h - padT - padB);
+
+  const segments = [];
+  let cur = [];
+  points.forEach((p, i) => {
+    if (p.val == null) { if (cur.length) { segments.push(cur); cur = []; } return; }
+    cur.push([xFor(i), yFor(p.val)]);
+  });
+  if (cur.length) segments.push(cur);
+  const pathStr = segments.map(seg => 'M' + seg.map(pt => pt[0].toFixed(1) + ',' + pt[1].toFixed(1)).join('L')).join(' ');
+  const dots = valued.map(p => `<circle cx="${xFor(p.i).toFixed(1)}" cy="${yFor(p.val).toFixed(1)}" r="2.6" fill="${color}"/>`).join('');
+
+  const first = valued[0].val, last = valued[valued.length - 1].val;
+  const svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:140px; display:block;">
+    <path d="${pathStr}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>`;
+  const footer = `<div class="trend-footer"><span>Start: ${fmtNum(first)} ${unit}</span><span>Aktuell: ${fmtNum(last)} ${unit}</span></div>`;
+  return svg + footer;
+}
+
+let selectedTrendExId = null;
+function renderExerciseTrend() {
+  const list = goalExercises();
+  const tabsWrap = $('#exerciseTrendTabs');
+  const chartWrap = $('#exerciseTrendChart');
+  if (!list.length) {
+    tabsWrap.innerHTML = '';
+    chartWrap.innerHTML = '<div class="oa-empty">Keine Zielübungen vorhanden.</div>';
+    return;
+  }
+  if (!selectedTrendExId || !list.find(e => e.id === selectedTrendExId)) selectedTrendExId = list[0].id;
+  tabsWrap.innerHTML = list.map(ex =>
+    `<button type="button" class="trend-tab ${ex.id === selectedTrendExId ? 'trend-tab-active' : ''}" data-id="${ex.id}">${ex.name}</button>`
+  ).join('');
+  tabsWrap.querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => { selectedTrendExId = b.dataset.id; renderExerciseTrend(); });
+  });
+  const ex = list.find(e => e.id === selectedTrendExId);
+  const days = rangeKeys(30);
+  const points = days.map(k => ({ key: k, val: hasEntry(k) && getVal(k, ex.id) > 0 ? getVal(k, ex.id) : null }));
+  chartWrap.innerHTML = buildLineChartSVG(points, { color: 'var(--lime)', unit: ex.unit, zeroBased: true });
+}
+
+function renderWeightStats() {
+  const wrap = $('#weightStats');
+  const keys = Object.keys(WEIGHT).sort();
+  if (!keys.length) { wrap.innerHTML = '<div class="oa-empty">Noch kein Gewicht erfasst.</div>'; return; }
+  const latestKey = keys[keys.length - 1];
+  const latest = WEIGHT[latestKey];
+  const weekAgo = latestWeightBefore(dateKeyOf(addDays(new Date(), -7)));
+  const monthAgo = latestWeightBefore(dateKeyOf(addDays(new Date(), -30)));
+  const parts = [`Aktuell: ${fmtNum(latest)} kg`];
+  if (weekAgo != null) parts.push(`7T: ${latest - weekAgo >= 0 ? '+' : ''}${fmtNum(Math.round((latest - weekAgo) * 10) / 10)} kg`);
+  if (monthAgo != null) parts.push(`30T: ${latest - monthAgo >= 0 ? '+' : ''}${fmtNum(Math.round((latest - monthAgo) * 10) / 10)} kg`);
+  wrap.innerHTML = `<div class="pe-row"><div class="pe-head"><b>Gewichtsverlauf</b><span>${parts.join(' · ')}</span></div></div>`;
+}
+
+function renderWeightChart() {
+  const days = rangeKeys(30);
+  const points = days.map(k => ({ key: k, val: getWeight(k) }));
+  $('#weightChart').innerHTML = buildLineChartSVG(points, { color: 'var(--weight)', unit: 'kg', zeroBased: false });
+}
+
+/* ---- calendar heatmap ---- */
+let heatmapMonthOffset = 0;
+function renderHeatmap() {
+  const base = new Date();
+  const viewDate = new Date(base.getFullYear(), base.getMonth() + heatmapMonthOffset, 1);
+  const year = viewDate.getFullYear(), month = viewDate.getMonth();
+  $('#heatmapLabel').textContent = `${MONTHS[month]} ${year}`;
+  $('#heatmapNext').disabled = heatmapMonthOffset >= 0;
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // Monday = 0
+  const wd = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  let html = wd.map(w => `<div class="hm-head">${w}</div>`).join('');
+  for (let i = 0; i < firstWeekday; i++) html += '<div class="hm-cell hm-empty"></div>';
+  const todayK = todayKey();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${year}-${pad2(month + 1)}-${pad2(d)}`;
+    const isFuture = key > todayK;
+    let cls = '';
+    if (!isFuture) {
+      const pct = hasEntry(key) ? dayPercent(key) : 0;
+      cls = pct >= 100 ? 'hm-full' : pct >= 40 ? 'hm-mid' : pct > 0 ? 'hm-low' : '';
+    }
+    const extra = [isFuture ? 'hm-future' : '', key === todayK ? 'hm-today' : ''].join(' ');
+    html += `<div class="hm-cell ${cls} ${extra}" data-key="${key}" title="${d}.${month + 1}. — ${hasEntry(key) ? Math.round(dayPercent(key)) + '%' : 'keine Daten'}">${d}</div>`;
+  }
+  $('#heatmapGrid').innerHTML = html;
+  $$('#heatmapGrid .hm-cell[data-key]').forEach(c => {
+    if (c.classList.contains('hm-future')) return;
+    c.addEventListener('click', () => openDayDetail(c.dataset.key));
+  });
+}
+$('#heatmapPrev').addEventListener('click', () => { heatmapMonthOffset--; renderHeatmap(); });
+$('#heatmapNext').addEventListener('click', () => { if (heatmapMonthOffset < 0) { heatmapMonthOffset++; renderHeatmap(); } });
 
 function renderPerExercise() {
   const week = rangeKeys(7);
@@ -656,6 +857,7 @@ function refreshAll() {
   renderExerciseCards();
   renderExtraCards();
   renderWaterToday();
+  renderWeightToday();
   updateRing();
   renderHistory();
   renderAnalysis();
@@ -684,11 +886,13 @@ $('#closeDay').addEventListener('click', () => closeSheet('#dayBackdrop'));
 $('#dayBackdrop').addEventListener('click', e => { if (e.target.id === 'dayBackdrop') closeSheet('#dayBackdrop'); });
 
 $('#resetBtn').addEventListener('click', () => {
-  if (confirm('Wirklich ALLE Trainings- und Wasserdaten unwiderruflich löschen?')) {
+  if (confirm('Wirklich ALLE Trainings-, Wasser- und Gewichtsdaten unwiderruflich löschen?')) {
     LOGS = {};
     WATER = {};
+    WEIGHT = {};
     saveLogs(LOGS);
     saveWater(WATER);
+    saveWeightData(WEIGHT);
     refreshAll();
     closeSheet('#settingsBackdrop');
   }
@@ -845,7 +1049,7 @@ $('#saveExerciseBtn').addEventListener('click', () => {
    BACKUP: EXPORT / IMPORT
 ============================================================ */
 $('#exportBtn').addEventListener('click', () => {
-  const payload = { exportedAt: new Date().toISOString(), logs: LOGS, settings: SETTINGS, exercises: EXERCISES, water: WATER };
+  const payload = { exportedAt: new Date().toISOString(), logs: LOGS, settings: SETTINGS, exercises: EXERCISES, water: WATER, weight: WEIGHT };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -864,6 +1068,7 @@ $('#importFile').addEventListener('change', e => {
       if (!confirm('Backup importieren? Das überschreibt alle aktuellen Daten auf diesem Gerät.')) return;
       if (data.logs) { LOGS = data.logs; saveLogs(LOGS); }
       if (data.water) { WATER = data.water; saveWater(WATER); }
+      if (data.weight) { WEIGHT = data.weight; saveWeightData(WEIGHT); }
       if (data.exercises) { EXERCISES = recalcTargets(data.exercises); saveExercises(EXERCISES); }
       if (data.settings) { SETTINGS = { ...SETTINGS, ...data.settings }; saveSettings(SETTINGS); }
       alert('Import erfolgreich!');

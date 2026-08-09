@@ -73,6 +73,24 @@ try {
       <div class="water-log" id="waterLog"></div>
     </div>
 
+    <h2 class="section-label">Gewicht</h2>
+    <div class="card is-weight" id="weightCard">
+      <div class="card-top">
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <div class="card-icon" id="weightIcon"></div>
+          <div>
+            <div class="card-name">Heutiges Gewicht</div>
+            <div class="card-target" id="weightTrendNote">Noch nicht erfasst</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-mid" style="justify-content:center;">
+        <div class="step-value" id="weightValueDisplay" data-act="set">
+          <b id="weightBig">—</b><small>kg</small>
+        </div>
+      </div>
+    </div>
+
     <div class="save-toast" id="saveToast">Gespeichert ✓</div>
   </section>
 
@@ -90,8 +108,26 @@ try {
     <div class="stat-row" id="analysisStatRow"></div>
 
     <div class="panel">
+      <div class="heatmap-head">
+        <h2 class="panel-title" style="margin-bottom:0;">Kalender</h2>
+        <div class="heatmap-nav">
+          <button type="button" id="heatmapPrev" aria-label="Vorheriger Monat">‹</button>
+          <span id="heatmapLabel">—</span>
+          <button type="button" id="heatmapNext" aria-label="Nächster Monat">›</button>
+        </div>
+      </div>
+      <div id="heatmapGrid" class="hm-grid"></div>
+    </div>
+
+    <div class="panel">
       <h2 class="panel-title">Letzte 14 Tage — Tageserfüllung</h2>
       <div id="chartDaily" class="chart-wrap"></div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title">Trend pro Übung (30 Tage)</h2>
+      <div id="exerciseTrendTabs" class="trend-tabs"></div>
+      <div id="exerciseTrendChart" class="chart-wrap"></div>
     </div>
 
     <div class="panel">
@@ -108,6 +144,12 @@ try {
       <h2 class="panel-title">Wasser</h2>
       <div id="waterStats" class="per-exercise"></div>
       <div id="chartWater" class="chart-wrap"></div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title">Gewicht</h2>
+      <div id="weightStats" class="per-exercise"></div>
+      <div id="weightChart" class="chart-wrap"></div>
     </div>
 
     <div class="panel">
@@ -303,6 +345,7 @@ try {
     <h2 class="sheet-title" id="dayTitle">—</h2>
     <div id="dayDetailBody" class="day-detail-body"></div>
     <div id="dayWaterBody"></div>
+    <div id="dayWeightBody"></div>
     <button class="btn-primary" id="closeDay">Schließen</button>
   </div>
 </div>
