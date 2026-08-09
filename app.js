@@ -14,6 +14,8 @@ const EXERCISES = [
 EXERCISES.forEach(e => { e.target = e.hasTarget ? e.sets * e.reps : undefined; });
 const GOAL_EXERCISES = EXERCISES.filter(e => e.hasTarget);
 const EXTRA_EXERCISES = EXERCISES.filter(e => !e.hasTarget);
+const DEFAULT_TARGETS = {};
+GOAL_EXERCISES.forEach(e => { DEFAULT_TARGETS[e.id] = { sets: e.sets, reps: e.reps }; });
 
 const ICONS = {
   pushups:  '<svg viewBox="0 0 24 24" fill="none"><path d="M2 16h20M6 16v-5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5M9 9V7M15 9V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -47,13 +49,22 @@ function loadLogs() {
 function saveLogs(logs) { localStorage.setItem(LOGS_KEY, JSON.stringify(logs)); }
 
 function loadSettings() {
-  try { return { reminderEnabled: false, reminderTime: '19:00', ...(JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}) }; }
-  catch { return { reminderEnabled: false, reminderTime: '19:00' }; }
+  try { return { reminderEnabled: false, reminderTime: '19:00', targets: {}, ...(JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}) }; }
+  catch { return { reminderEnabled: false, reminderTime: '19:00', targets: {} }; }
 }
 function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
 
+function applyCustomTargets() {
+  GOAL_EXERCISES.forEach(ex => {
+    const t = SETTINGS.targets && SETTINGS.targets[ex.id];
+    if (t) { ex.sets = t.sets; ex.reps = t.reps; }
+    ex.target = ex.sets * ex.reps;
+  });
+}
+
 let LOGS = loadLogs();
 let SETTINGS = loadSettings();
+applyCustomTargets();
 
 function getVal(dateKey, exId) {
   return (LOGS[dateKey] && LOGS[dateKey][exId]) || 0;
@@ -454,7 +465,58 @@ function syncSettingsUI() {
   $('#reminderTime').value = SETTINGS.reminderTime;
   $('#reminderTimeRow').style.display = SETTINGS.reminderEnabled ? 'flex' : 'none';
   updateNotifNote();
+  renderTargetEditor();
 }
+
+function renderTargetEditor() {
+  const wrap = $('#targetEditor');
+  wrap.innerHTML = '';
+  GOAL_EXERCISES.forEach(ex => {
+    const row = el('div', 'target-row');
+    row.innerHTML = `
+      <div class="target-name">${ex.name}</div>
+      <div class="target-controls">
+        <div class="mini-stepper">
+          <button data-act="sets-minus" aria-label="Weniger Sätze">−</button>
+          <span>${ex.sets}<small>Sätze</small></span>
+          <button data-act="sets-plus" aria-label="Mehr Sätze">+</button>
+        </div>
+        <div class="mini-stepper">
+          <button data-act="reps-minus" aria-label="Weniger Wdh.">−</button>
+          <span>${ex.reps}<small>Wdh./Satz</small></span>
+          <button data-act="reps-plus" aria-label="Mehr Wdh.">+</button>
+        </div>
+      </div>
+      <div class="target-total">= ${ex.sets * ex.reps} Wiederholungen gesamt</div>
+    `;
+    row.querySelector('[data-act="sets-minus"]').addEventListener('click', () => changeTarget(ex, 'sets', -1));
+    row.querySelector('[data-act="sets-plus"]').addEventListener('click', () => changeTarget(ex, 'sets', 1));
+    row.querySelector('[data-act="reps-minus"]').addEventListener('click', () => changeTarget(ex, 'reps', -1));
+    row.querySelector('[data-act="reps-plus"]').addEventListener('click', () => changeTarget(ex, 'reps', 1));
+    wrap.appendChild(row);
+  });
+}
+
+function changeTarget(ex, field, delta) {
+  ex[field] = Math.max(1, ex[field] + delta);
+  ex.target = ex.sets * ex.reps;
+  if (!SETTINGS.targets) SETTINGS.targets = {};
+  SETTINGS.targets[ex.id] = { sets: ex.sets, reps: ex.reps };
+  saveSettings(SETTINGS);
+  renderTargetEditor();
+  refreshAll();
+}
+
+$('#resetTargets').addEventListener('click', () => {
+  GOAL_EXERCISES.forEach(ex => {
+    const d = DEFAULT_TARGETS[ex.id];
+    ex.sets = d.sets; ex.reps = d.reps; ex.target = d.sets * d.reps;
+  });
+  SETTINGS.targets = {};
+  saveSettings(SETTINGS);
+  renderTargetEditor();
+  refreshAll();
+});
 
 function updateNotifNote() {
   const note = $('#notifNote');
