@@ -17,6 +17,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;500;600;700;800&family=Archivo+Expanded:wght@700;800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
+<script>
+try {
+  var s = JSON.parse(localStorage.getItem('grind_settings_v1'));
+  if (s && s.theme === 'light') document.documentElement.dataset.theme = 'light';
+} catch (e) {}
+</script>
 </head>
 <body>
 
@@ -56,6 +62,17 @@
     <h2 class="section-label">Zusätzlich getrackt <span>kein Tagesziel</span></h2>
     <div class="cards" id="extraCards"></div>
 
+    <h2 class="section-label">Wasser</h2>
+    <div class="water-card">
+      <div class="water-top">
+        <div class="water-total"><b id="waterTotalVal">0</b><span>ml heute</span></div>
+        <div class="water-last" id="waterLast">Noch nichts getrunken</div>
+      </div>
+      <div class="water-bar"><div class="water-bar-fill" id="waterBarFill" style="width:0%"></div></div>
+      <div class="water-quick" id="waterQuick"></div>
+      <div class="water-log" id="waterLog"></div>
+    </div>
+
     <div class="save-toast" id="saveToast">Gespeichert ✓</div>
   </section>
 
@@ -85,6 +102,17 @@
     <div class="panel">
       <h2 class="panel-title">Extra-Aktivitäten (ohne Ziel)</h2>
       <div id="extraStats" class="per-exercise"></div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title">Wasser</h2>
+      <div id="waterStats" class="per-exercise"></div>
+      <div id="chartWater" class="chart-wrap"></div>
+    </div>
+
+    <div class="panel">
+      <h2 class="panel-title">Bestleistungen 🏆</h2>
+      <div id="bestStats" class="overachieve"></div>
     </div>
 
     <div class="panel">
@@ -118,27 +146,89 @@
 
     <div class="setting-row">
       <div>
-        <div class="setting-label">Tägliche Erinnerung</div>
-        <div class="setting-sub">Benachrichtigt dich, falls du noch nicht getrackt hast</div>
+        <div class="setting-label">Helles Design</div>
+        <div class="setting-sub">Zwischen dunklem und hellem Look wechseln</div>
       </div>
       <label class="switch">
-        <input type="checkbox" id="reminderToggle" />
+        <input type="checkbox" id="themeToggle" />
         <span class="switch-track"><span class="switch-thumb"></span></span>
       </label>
     </div>
 
-    <div class="setting-row" id="reminderTimeRow">
-      <div class="setting-label">Uhrzeit</div>
-      <input type="time" id="reminderTime" value="19:00" />
+    <div class="setting-block">
+      <div class="setting-row" style="border:none; padding-bottom:8px;">
+        <div>
+          <div class="setting-label">Tägliche Erinnerung</div>
+          <div class="setting-sub">Benachrichtigt dich, falls du noch nicht getrackt hast</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="reminderToggle" />
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+        </label>
+      </div>
+      <div id="reminderTimesBlock" hidden>
+        <div class="time-chips" id="reminderTimesList"></div>
+        <div class="add-time-row">
+          <input type="time" id="newReminderTime" value="19:00" />
+          <button class="btn-link" id="addReminderTime">+ Uhrzeit hinzufügen</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <div class="setting-row" style="border:none; padding-bottom:8px;">
+        <div>
+          <div class="setting-label">Wochenrückblick</div>
+          <div class="setting-sub">Einmal die Woche eine Zusammenfassung</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="weeklyToggle" />
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+        </label>
+      </div>
+      <div class="weekly-row" id="weeklyRow" hidden>
+        <select id="weeklyWeekday">
+          <option value="0">Sonntag</option>
+          <option value="1">Montag</option>
+          <option value="2">Dienstag</option>
+          <option value="3">Mittwoch</option>
+          <option value="4">Donnerstag</option>
+          <option value="5">Freitag</option>
+          <option value="6">Samstag</option>
+        </select>
+        <input type="time" id="weeklyTime" value="19:00" />
+      </div>
     </div>
 
     <p class="setting-note" id="notifNote"></p>
 
     <div class="setting-block">
-      <div class="setting-label">Ziele anpassen</div>
-      <div class="setting-sub">Sätze und Wiederholungen pro Übung individuell einstellen</div>
-      <div id="targetEditor" class="target-editor"></div>
-      <button class="btn-link" id="resetTargets">Auf Standard zurücksetzen</button>
+      <div class="setting-row" style="border:none; padding-bottom:8px;">
+        <div class="setting-label">Wasserziel</div>
+      </div>
+      <div class="mini-stepper" style="max-width:220px;">
+        <button type="button" id="waterGoalMinus" aria-label="Weniger">−</button>
+        <span id="waterGoalVal">2000<small>ml / Tag</small></span>
+        <button type="button" id="waterGoalPlus" aria-label="Mehr">+</button>
+      </div>
+    </div>
+
+    <div class="setting-block">
+      <div class="setting-label">Übungen verwalten</div>
+      <div class="setting-sub">Übungen anpassen, hinzufügen oder entfernen</div>
+      <div id="exerciseManager" class="exercise-manager"></div>
+      <button class="btn-secondary" id="addExerciseBtn">+ Neue Übung hinzufügen</button>
+      <button class="btn-link" id="resetTargets">Alle Übungen auf Standard zurücksetzen</button>
+    </div>
+
+    <div class="setting-block">
+      <div class="setting-label">Daten sichern</div>
+      <div class="setting-sub">Backup exportieren oder auf einem neuen Gerät wiederherstellen</div>
+      <div class="backup-row">
+        <button class="btn-secondary" id="exportBtn">Exportieren</button>
+        <button class="btn-secondary" id="importBtn">Importieren</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+      </div>
     </div>
 
     <div class="setting-row">
@@ -153,12 +243,65 @@
   </div>
 </div>
 
+<!-- ===== EXERCISE ADD/EDIT MODAL ===== -->
+<div class="sheet-backdrop" id="exerciseFormBackdrop">
+  <div class="sheet" id="exerciseFormSheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" id="exerciseFormTitle">Neue Übung</h2>
+
+    <div class="form-field">
+      <label for="exName">Name</label>
+      <input type="text" id="exName" placeholder="z. B. Klimmzüge" />
+    </div>
+
+    <div class="form-field">
+      <label>Typ</label>
+      <div class="segmented" id="exTypeSegmented">
+        <button type="button" data-type="goal" class="seg-active">Sätze × Wdh.</button>
+        <button type="button" data-type="free">Nur ein Wert (km, Min. …)</button>
+      </div>
+    </div>
+
+    <div class="form-field" id="exGoalFields">
+      <label>Sätze &amp; Wiederholungen</label>
+      <div class="target-controls">
+        <div class="mini-stepper">
+          <button type="button" data-act="sets-minus">−</button>
+          <span id="exSetsVal">3<small>Sätze</small></span>
+          <button type="button" data-act="sets-plus">+</button>
+        </div>
+        <div class="mini-stepper">
+          <button type="button" data-act="reps-minus">−</button>
+          <span id="exRepsVal">10<small>Wdh./Satz</small></span>
+          <button type="button" data-act="reps-plus">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-field" id="exFreeFields" hidden>
+      <label for="exUnit">Einheit</label>
+      <input type="text" id="exUnit" placeholder="km, Min., Liter …" />
+      <label for="exStep" style="margin-top:10px;">Schrittweite pro Tap</label>
+      <input type="number" id="exStep" step="0.01" min="0.01" value="1" />
+    </div>
+
+    <div class="form-field">
+      <label>Icon</label>
+      <div class="icon-picker" id="iconPicker"></div>
+    </div>
+
+    <button class="btn-primary" id="saveExerciseBtn">Speichern</button>
+    <button class="btn-link" id="cancelExerciseForm">Abbrechen</button>
+  </div>
+</div>
+
 <!-- ===== DAY DETAIL MODAL ===== -->
 <div class="sheet-backdrop" id="dayBackdrop">
   <div class="sheet" id="daySheet">
     <div class="sheet-handle"></div>
     <h2 class="sheet-title" id="dayTitle">—</h2>
     <div id="dayDetailBody" class="day-detail-body"></div>
+    <div id="dayWaterBody"></div>
     <button class="btn-primary" id="closeDay">Schließen</button>
   </div>
 </div>
