@@ -1,5 +1,7 @@
 'use strict';
 
+const APP_VERSION = '1.6.0 · 2026-08-09';
+
 /* ============================================================
    CONFIG
 ============================================================ */
@@ -257,12 +259,20 @@ function renderExerciseCards() {
   });
 }
 
+function quickAmountsFor(ex) {
+  const base = ex.step || 1;
+  const raw = [base * 10, base * 50];
+  const seen = new Set();
+  return raw.map(v => Math.round(v * 100) / 100).filter(v => v > base && !seen.has(v) && seen.add(v));
+}
+
 function renderExtraCards() {
   const key = todayKey();
   const wrap = $('#extraCards');
   wrap.innerHTML = '';
   extraExercises().forEach(ex => {
     const val = getVal(key, ex.id);
+    const quick = quickAmountsFor(ex);
     const card = el('div', 'card is-cardio is-extra');
     card.innerHTML = `
       <div class="card-top">
@@ -281,10 +291,16 @@ function renderExtraCards() {
           <button class="step-btn" data-act="plus" aria-label="Mehr">+</button>
         </div>
       </div>
+      ${quick.length ? `<div class="card-quick">${quick.map(v => `<button type="button" data-amt="${v}">+${fmtNum(v)} ${ex.unit}</button>`).join('')}<button type="button" data-act="edit">✎ eingeben</button></div>` : ''}
     `;
     card.querySelector('[data-act="plus"]').addEventListener('click', () => bump(ex, stepAmount(ex)));
     card.querySelector('[data-act="minus"]').addEventListener('click', () => bump(ex, -stepAmount(ex)));
     card.querySelector('[data-act="set"]').addEventListener('click', () => promptSetValue(ex));
+    const editBtn = card.querySelector('[data-act="edit"]');
+    if (editBtn) editBtn.addEventListener('click', () => promptSetValue(ex));
+    card.querySelectorAll('[data-amt]').forEach(btn => {
+      btn.addEventListener('click', () => bump(ex, parseFloat(btn.dataset.amt)));
+    });
     wrap.appendChild(card);
   });
 }
@@ -878,6 +894,7 @@ function syncSettingsUI() {
   renderWaterGoalUI();
   renderExerciseManager();
   updateNotifNote();
+  $('#appVersion').textContent = `GRIND · v${APP_VERSION}`;
 }
 
 function renderReminderTimes() {
