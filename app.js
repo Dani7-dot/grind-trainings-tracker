@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.7.0 · 2026-09-12';
+const APP_VERSION = '1.8.0 · 2026-09-12';
 
 /* ============================================================
    CONFIG
@@ -1158,6 +1158,40 @@ $('#saveExerciseBtn').addEventListener('click', () => {
 });
 
 /* ============================================================
+   APP-UPDATES: MANUELL NACH NEUER VERSION SUCHEN
+============================================================ */
+const UPDATE_CHECK_KEY = 'grind_update_check_prev_v1';
+
+$('#checkUpdateBtn').addEventListener('click', async () => {
+  const btn = $('#checkUpdateBtn');
+  const note = $('#updateCheckNote');
+  btn.disabled = true;
+  note.textContent = 'Suche nach Updates …';
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.update()));
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch { /* best-effort — auch ohne Service Worker/Cache API soll der Reload greifen */ }
+  sessionStorage.setItem(UPDATE_CHECK_KEY, APP_VERSION);
+  location.href = location.pathname + '?refresh=' + Date.now();
+});
+
+function reportUpdateCheckResult() {
+  const prevVersion = sessionStorage.getItem(UPDATE_CHECK_KEY);
+  if (!prevVersion) return;
+  sessionStorage.removeItem(UPDATE_CHECK_KEY);
+  const updated = prevVersion !== APP_VERSION;
+  setTimeout(() => {
+    celebrate(updated ? `<b>✅ Aktualisiert</b>Jetzt auf v${APP_VERSION}` : `<b>✓ Bereits aktuell</b>v${APP_VERSION} ist die neueste Version`, 2600);
+  }, 400);
+}
+
+/* ============================================================
    BACKUP: EXPORT / IMPORT
 ============================================================ */
 $('#exportBtn').addEventListener('click', () => {
@@ -1212,6 +1246,8 @@ function syncSettingsUI() {
   renderExerciseManager();
   updateNotifNote();
   $('#appVersion').textContent = `GRIND · v${APP_VERSION}`;
+  $('#checkUpdateBtn').disabled = false;
+  $('#updateCheckNote').textContent = '';
 }
 
 function renderReminderTimes() {
@@ -1397,3 +1433,4 @@ if (SETTINGS.reminderEnabled && 'Notification' in window && Notification.permiss
 if (SETTINGS.weeklyReminder && SETTINGS.weeklyReminder.enabled && 'Notification' in window && Notification.permission === 'granted') {
   scheduleWeeklyReminder();
 }
+reportUpdateCheckResult();
