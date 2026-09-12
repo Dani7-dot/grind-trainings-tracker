@@ -173,6 +173,8 @@ h1,h2,h3{ font-family: var(--font-display); letter-spacing: .01em; margin: 0; }
 
 .card-name{ font-family: var(--font-display); font-size:22px; letter-spacing:.01em; text-transform:uppercase; }
 .card-target{ font-size:12px; color: var(--text-faint); margin-top:1px; }
+.card-week{ font-size:12px; color: var(--text-faint); margin-top:2px; }
+.card-week.done{ color: var(--lime); font-weight:600; }
 
 .card-mid{ display:flex; align-items:center; justify-content:space-between; margin-top:14px; gap:10px; }
 .stepper{ display:flex; align-items:center; gap:12px; }

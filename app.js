@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.6.0 · 2026-08-09';
+const APP_VERSION = '1.7.0 · 2026-09-12';
 
 /* ============================================================
    CONFIG
@@ -159,6 +159,25 @@ function hasEntry(dateKey) {
   return !!LOGS[dateKey] && Object.values(LOGS[dateKey]).some(v => v > 0);
 }
 
+function weekTargetFor(ex) { return ex.target * 7; }
+function weekSum(weekKey, exId) {
+  return weekKeys(weekKey).reduce((s, k) => s + getVal(k, exId), 0);
+}
+function weekRatio(weekKey, ex) {
+  return weekSum(weekKey, ex.id) / weekTargetFor(ex);
+}
+function weekPercent(weekKey) {
+  const list = goalExercises();
+  if (!list.length) return 0;
+  const ratios = list.map(ex => weekRatio(weekKey, ex));
+  return (ratios.reduce((a, b) => a + b, 0) / ratios.length) * 100;
+}
+function weekComplete(weekKey) {
+  const list = goalExercises();
+  if (!list.length) return false;
+  return list.every(ex => weekRatio(weekKey, ex) >= 1);
+}
+
 function waterTotal(dateKey) {
   return (WATER[dateKey] || []).reduce((s, e) => s + e.amount, 0);
 }
@@ -204,6 +223,20 @@ function rangeKeys(n) {
   for (let i = n - 1; i >= 0; i--) arr.push(dateKeyOf(addDays(new Date(), -i)));
   return arr;
 }
+
+/* Kalenderwoche Montag–Sonntag, referenziert über den Montags-Datumskey */
+function mondayOffset(d) { return (d.getDay() + 6) % 7; }
+function weekStartDate(d) { return addDays(d, -mondayOffset(d)); }
+function weekStartKeyOf(d) { return dateKeyOf(weekStartDate(d)); }
+function weekKeys(weekKey) {
+  const start = keyToDate(weekKey);
+  const arr = [];
+  for (let i = 0; i < 7; i++) arr.push(dateKeyOf(addDays(start, i)));
+  return arr;
+}
+function prevWeekKey(weekKey) { return dateKeyOf(addDays(keyToDate(weekKey), -7)); }
+function nextWeekKey(weekKey) { return dateKeyOf(addDays(keyToDate(weekKey), 7)); }
+function currentWeekStartKey() { return weekStartKeyOf(new Date()); }
 
 /* ============================================================
    DOM HELPERS
@@ -283,12 +316,17 @@ function renderExerciseCards() {
   const key = todayKey();
   const wrap = $('#exerciseCards');
   wrap.innerHTML = '';
+  const wk = currentWeekStartKey();
   goalExercises().forEach(ex => {
     const val = getVal(key, ex.id);
     const ratio = val / ex.target;
     const pct = Math.round(ratio * 100);
+    const wSum = weekSum(wk, ex.id);
+    const wTarget = weekTargetFor(ex);
+    const wDone = wSum >= wTarget;
     const card = el('div', 'card');
     const targetLabel = `Ziel: ${ex.sets}× ${ex.reps} (${ex.target} Wdh.)`;
+    const weekLabel = `Woche: ${fmtNum(wSum)} / ${wTarget} ${ex.unit}${wDone ? ' ✓' : ''}`;
     card.innerHTML = `
       <div class="card-top">
         <div style="display:flex; gap:12px; align-items:flex-start;">
@@ -296,6 +334,7 @@ function renderExerciseCards() {
           <div>
             <div class="card-name">${ex.name}</div>
             <div class="card-target">${targetLabel}</div>
+            <div class="card-week ${wDone ? 'done' : ''}">${weekLabel}</div>
           </div>
         </div>
         <div class="card-pct ${pct >= 100 ? 'over' : ''}">${pct}%</div>
@@ -373,8 +412,7 @@ function bump(ex, delta) {
 }
 
 function updateRing() {
-  const key = todayKey();
-  const pct = dayPercent(key);
+  const pct = weekPercent(currentWeekStartKey());
   const circumference = 326.7;
   const capped = Math.min(Math.max(pct, 0), 100);
   const offset = circumference * (1 - capped / 100);
@@ -439,8 +477,8 @@ function renderHistory() {
   list.innerHTML = '';
   $('#historyEmpty').hidden = keys.length > 0;
 
-  const { current, best } = computeStreaks();
-  $('#historyStatRow').innerHTML = statBox(keys.length, 'Tage geloggt') + statBox(current, 'Streak (Tage)') + statBox(best, 'Beste Streak');
+  const { current, best } = computeWeekStreaks();
+  $('#historyStatRow').innerHTML = statBox(keys.length, 'Tage geloggt') + statBox(current, 'Streak (Wochen)') + statBox(best, 'Beste Streak (Wochen)');
 
   let lastMonth = null;
   keys.forEach(key => {
@@ -473,30 +511,23 @@ function statBox(value, label) {
   return `<div class="stat-box"><b>${value}</b><span>${label}</span></div>`;
 }
 
-function computeStreaks() {
-  const keys = Object.keys(LOGS).filter(hasEntry);
-  const set = new Set(keys);
+function computeWeekStreaks() {
+  const todayW = currentWeekStartKey();
   let current = 0;
-  let cursor = new Date();
-  const tKey = todayKey();
-  if (!(set.has(tKey) && dayComplete(tKey))) {
-    cursor = addDays(cursor, -1);
+  let cursor = todayW;
+  if (weekComplete(todayW)) { current++; cursor = prevWeekKey(cursor); }
+  else { cursor = prevWeekKey(cursor); }
+  while (weekComplete(cursor)) { current++; cursor = prevWeekKey(cursor); }
+
+  const loggedDayKeys = Object.keys(LOGS).filter(hasEntry).sort();
+  if (!loggedDayKeys.length) return { current, best: current };
+  let scan = weekStartKeyOf(keyToDate(loggedDayKeys[0]));
+  let best = 0, run = 0;
+  while (scan <= todayW) {
+    if (weekComplete(scan)) { run++; best = Math.max(best, run); }
+    else { run = 0; }
+    scan = nextWeekKey(scan);
   }
-  while (true) {
-    const k = dateKeyOf(cursor);
-    if (set.has(k) && dayComplete(k)) { current++; cursor = addDays(cursor, -1); }
-    else break;
-  }
-  const sortedKeys = keys.filter(k => dayComplete(k)).sort();
-  let best = 0, run = 0, prev = null;
-  sortedKeys.forEach(k => {
-    if (prev) {
-      const diff = (keyToDate(k) - keyToDate(prev)) / 86400000;
-      run = diff === 1 ? run + 1 : 1;
-    } else run = 1;
-    best = Math.max(best, run);
-    prev = k;
-  });
   return { current, best: Math.max(best, current) };
 }
 
@@ -581,12 +612,12 @@ function renderDayWeightBody() {
    ANALYSIS VIEW
 ============================================================ */
 function renderAnalysis() {
-  const { current, best } = computeStreaks();
+  const { current, best } = computeWeekStreaks();
   const last30 = rangeKeys(30);
   const overDays = last30.filter(k => hasEntry(k) && dayPercent(k) > 100);
   $('#analysisStatRow').innerHTML =
-    statBox(current, 'Aktuelle Streak') +
-    statBox(best, 'Beste Streak') +
+    statBox(current, 'Aktuelle Streak (Wochen)') +
+    statBox(best, 'Beste Streak (Wochen)') +
     statBox(overDays.length, 'Über 100% (30T)');
 
   renderHeatmap();
@@ -1203,8 +1234,8 @@ function scheduleSingleReminder(timeStr) {
   if (target <= now) target = addDays(target, 1);
   const ms = target - now;
   const timer = setTimeout(() => {
-    if (SETTINGS.reminderEnabled && !dayComplete(todayKey())) {
-      notifyLocal('GRIND — Training nicht vergessen', 'Du hast dein Tagesziel noch nicht erreicht — Zeit für ein paar Übungen! 💪');
+    if (SETTINGS.reminderEnabled && !weekComplete(currentWeekStartKey())) {
+      notifyLocal('GRIND — Training nicht vergessen', 'Du hast dein Wochenziel noch nicht erreicht — Zeit für ein paar Übungen! 💪');
     }
     scheduleSingleReminder(timeStr);
   }, ms);

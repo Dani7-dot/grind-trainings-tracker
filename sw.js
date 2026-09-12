@@ -1,4 +1,4 @@
-const CACHE = 'grind-v6';
+const CACHE = 'grind-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -46,7 +46,7 @@ async function checkAndNotify() {
     const clientsList = await self.clients.matchAll({ type: 'window' });
     if (clientsList.length > 0) return; // app is open, in-page timer already handles it
     await self.registration.showNotification('GRIND — Training nicht vergessen', {
-      body: 'Du hast dein Tagesziel heute noch nicht erreicht — Zeit für ein paar Übungen! 💪',
+      body: 'Du hast dein Wochenziel noch nicht erreicht — Zeit für ein paar Übungen! 💪',
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',
       tag: 'grind-reminder',
