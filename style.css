@@ -208,6 +208,33 @@ h1,h2,h3{ font-family: var(--font-display); letter-spacing: .01em; margin: 0; }
 }
 .save-toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
 
+.celebrate-toast{
+  position: fixed; left:50%; bottom: calc(96px + var(--safe-bottom));
+  transform: translateX(-50%) translateY(20px);
+  background: var(--bg-card); color: var(--text); font-size:13px; line-height:1.4;
+  padding: 12px 22px; border-radius: 16px; opacity:0; pointer-events:none;
+  border: 1.5px solid var(--lime); text-align:center; max-width: 280px;
+  transition: opacity .3s, transform .3s;
+  z-index: 61; box-shadow: 0 12px 32px rgba(215,255,61,.3);
+}
+.celebrate-toast b{ display:block; font-family: var(--font-display); font-size:16px; color: var(--accent-text); letter-spacing:.01em; }
+.celebrate-toast.show{ opacity:1; transform: translateX(-50%) translateY(0); animation: celebratePop .4s ease; }
+@keyframes celebratePop{
+  0%{ transform: translateX(-50%) translateY(20px) scale(.9); }
+  60%{ transform: translateX(-50%) translateY(-4px) scale(1.05); }
+  100%{ transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.confetti-layer{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+.confetti-piece{
+  position:absolute; left:50%; top:50%; font-size:16px; opacity:0;
+  animation: confettiBurst .9s ease-out forwards;
+}
+@keyframes confettiBurst{
+  0%{ opacity:1; transform: translate(-50%,-50%) translate(0,0) rotate(0deg); }
+  100%{ opacity:0; transform: translate(-50%,-50%) translate(var(--dx), var(--dy)) rotate(var(--rot)); }
+}
+
 /* ============ BOTTOM NAV ============ */
 .bottom-nav{
   position: fixed; left:0; right:0; bottom:0; z-index:50;

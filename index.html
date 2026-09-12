@@ -54,6 +54,7 @@ try {
           <span id="ringPercent">0%</span>
           <small>Wochenziel</small>
         </div>
+        <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
       </div>
     </div>
 
@@ -91,7 +92,6 @@ try {
       </div>
     </div>
 
-    <div class="save-toast" id="saveToast">Gespeichert ✓</div>
   </section>
 
   <!-- ===== VERLAUF ===== -->
@@ -164,6 +164,9 @@ try {
   </section>
 
 </main>
+
+<div class="save-toast" id="saveToast">Gespeichert ✓</div>
+<div class="celebrate-toast" id="celebrateToast"></div>
 
 <nav class="bottom-nav" id="bottomNav">
   <button class="nav-btn nav-active" data-target="today">
