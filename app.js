@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.11.0 · 2026-09-13';
+const APP_VERSION = '1.14.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -363,7 +363,19 @@ function celebrateWeekComplete(streakCount, isNewBest) {
  * zusätzlicher "Gespeichert"-Toast mehr angezeigt werden).
  */
 function recordValue(ex, dateKey, newVal) {
-  if (!ex.hasTarget) { setVal(dateKey, ex.id, newVal); return false; }
+  if (!ex.hasTarget) {
+    const weeklyGoal = ex.weeklyGoal || 0;
+    if (!weeklyGoal) { setVal(dateKey, ex.id, newVal); return false; }
+    const wk = weekStartKeyOf(keyToDate(dateKey));
+    const isCurrentWeek = wk === currentWeekStartKey();
+    const prevDone = isCurrentWeek && weekSum(wk, ex.id) >= weeklyGoal;
+    setVal(dateKey, ex.id, newVal);
+    if (isCurrentWeek && !prevDone && weekSum(wk, ex.id) >= weeklyGoal) {
+      celebrateExerciseDone(ex);
+      return true;
+    }
+    return false;
+  }
   const wk = weekStartKeyOf(keyToDate(dateKey));
   const isCurrentWeek = wk === currentWeekStartKey();
   let prevExerciseDone = false, prevWeekDone = false, prevBest = 0;
@@ -524,11 +536,19 @@ function quickAmountsFor(ex) {
 
 function renderExtraCards() {
   const key = todayKey();
+  const wk = currentWeekStartKey();
   const wrap = $('#extraCards');
   wrap.innerHTML = '';
   extraExercises().forEach(ex => {
     const val = getVal(key, ex.id);
     const quick = quickAmountsFor(ex);
+    const weeklyGoal = ex.weeklyGoal || 0;
+    const wSum = weeklyGoal ? weekSum(wk, ex.id) : 0;
+    const wDone = weeklyGoal > 0 && wSum >= weeklyGoal;
+    const wPct = weeklyGoal ? Math.min(100, Math.round((wSum / weeklyGoal) * 100)) : 0;
+    const targetLine = weeklyGoal
+      ? `Woche: ${fmtNum(wSum)} / ${fmtNum(weeklyGoal)} ${ex.unit}${wDone ? ' ✓' : ''}`
+      : 'Kein Tagesziel — nur getrackt';
     const card = el('div', 'card is-cardio is-extra');
     card.innerHTML = `
       <div class="card-top">
@@ -536,7 +556,7 @@ function renderExtraCards() {
           <div class="card-icon">${iconFor(ex)}</div>
           <div>
             <div class="card-name">${ex.name}</div>
-            <div class="card-target">Kein Tagesziel — nur getrackt</div>
+            <div class="card-target">${targetLine}</div>
           </div>
         </div>
       </div>
@@ -547,6 +567,7 @@ function renderExtraCards() {
           <button class="step-btn" data-act="plus" aria-label="Mehr">+</button>
         </div>
       </div>
+      ${weeklyGoal ? `<div class="bar-row"><span class="bar-tag">Woche</span><div class="bar"><div class="bar-fill ${wDone ? 'over' : ''}" style="width:${wPct}%"></div></div></div>` : ''}
       ${quick.length ? `<div class="card-quick">${quick.map(v => `<button type="button" data-amt="${v}">+${fmtNum(v)} ${ex.unit}</button>`).join('')}<button type="button" data-act="edit">✎ eingeben</button></div>` : ''}
     `;
     card.querySelector('[data-act="plus"]').addEventListener('click', () => bump(ex, stepAmount(ex)));
@@ -714,7 +735,9 @@ function renderDayDetailBody() {
   EXERCISES.forEach(ex => {
     const val = getVal(key, ex.id);
     const pct = ex.hasTarget ? Math.round((val / ex.target) * 100) : null;
-    const detailLine = ex.hasTarget ? `${ex.sets}× ${ex.reps} Ziel · ${pct}%` : 'Kein Ziel — nur getrackt';
+    const detailLine = ex.hasTarget
+      ? `${ex.sets}× ${ex.reps} Ziel · ${pct}%`
+      : (ex.weeklyGoal ? `Kein Tagesziel — Wochenziel ${fmtNum(ex.weeklyGoal)} ${ex.unit}` : 'Kein Ziel — nur getrackt');
     const row = el('div', 'day-item');
     row.innerHTML = `
       <div>
@@ -908,12 +931,12 @@ function buildLineChartSVG(points, opts) {
 
 let selectedTrendExId = null;
 function renderExerciseTrend() {
-  const list = goalExercises();
+  const list = EXERCISES;
   const tabsWrap = $('#exerciseTrendTabs');
   const chartWrap = $('#exerciseTrendChart');
   if (!list.length) {
     tabsWrap.innerHTML = '';
-    chartWrap.innerHTML = '<div class="oa-empty">Keine Zielübungen vorhanden.</div>';
+    chartWrap.innerHTML = '<div class="oa-empty">Keine Übungen vorhanden.</div>';
     return;
   }
   if (!selectedTrendExId || !list.find(e => e.id === selectedTrendExId)) selectedTrendExId = list[0].id;
@@ -926,7 +949,8 @@ function renderExerciseTrend() {
   const ex = list.find(e => e.id === selectedTrendExId);
   const days = rangeKeys(30);
   const points = days.map(k => ({ key: k, val: hasEntry(k) && getVal(k, ex.id) > 0 ? getVal(k, ex.id) : null }));
-  chartWrap.innerHTML = buildLineChartSVG(points, { color: 'var(--lime)', unit: ex.unit, zeroBased: true });
+  const color = ex.hasTarget ? 'var(--lime)' : 'var(--orange)';
+  chartWrap.innerHTML = buildLineChartSVG(points, { color, unit: ex.unit, zeroBased: true });
 }
 
 function renderWeightStats() {
@@ -985,11 +1009,11 @@ $('#heatmapPrev').addEventListener('click', () => { heatmapMonthOffset--; render
 $('#heatmapNext').addEventListener('click', () => { if (heatmapMonthOffset < 0) { heatmapMonthOffset++; renderHeatmap(); } });
 
 function renderPerExercise() {
-  const week = rangeKeys(7);
+  const wk = currentWeekStartKey();
   const wrap = $('#perExercise');
   wrap.innerHTML = '';
   goalExercises().forEach(ex => {
-    const total = week.reduce((s, k) => s + getVal(k, ex.id), 0);
+    const total = weekSum(wk, ex.id);
     const targetWeek = ex.target * 7;
     const pct = Math.min(100, Math.round((total / targetWeek) * 100));
     const row = el('div', 'pe-row');
@@ -1002,15 +1026,19 @@ function renderPerExercise() {
 }
 
 function renderExtraStats() {
-  const week = rangeKeys(7);
+  const wk = currentWeekStartKey();
   const month = rangeKeys(30);
   const wrap = $('#extraStats');
   wrap.innerHTML = '';
   extraExercises().forEach(ex => {
-    const weekTotal = week.reduce((s, k) => s + getVal(k, ex.id), 0);
+    const weekTotal = weekSum(wk, ex.id);
     const monthTotal = month.reduce((s, k) => s + getVal(k, ex.id), 0);
+    const goalNote = ex.weeklyGoal ? ` · Ziel ${fmtNum(ex.weeklyGoal)} ${ex.unit}/Woche` : '';
     const row = el('div', 'pe-row');
-    row.innerHTML = `<div class="pe-head"><b>${ex.name}</b><span>${fmtNum(weekTotal)} ${ex.unit} diese Woche · ${fmtNum(monthTotal)} ${ex.unit} (30 Tage)</span></div>`;
+    row.innerHTML = `
+      <div class="pe-head"><b>${ex.name}</b><span>${fmtNum(weekTotal)} ${ex.unit} diese Woche · ${fmtNum(monthTotal)} ${ex.unit} (30 Tage)${goalNote}</span></div>
+      ${ex.weeklyGoal ? `<div class="pe-bar"><i style="width:${Math.min(100, Math.round((weekTotal / ex.weeklyGoal) * 100))}%"></i></div>` : ''}
+    `;
     wrap.appendChild(row);
   });
   if (!extraExercises().length) wrap.innerHTML = '<div class="oa-empty">Keine Extra-Aktivitäten angelegt.</div>';
@@ -1055,6 +1083,7 @@ const STREAK_MILESTONES = [1, 2, 4, 8, 12, 26, 52];
 const LOGGED_DAYS_MILESTONES = [7, 30, 100, 365];
 const WATER_DAYS_MILESTONES = [7, 30, 100];
 const VOLUME_MILESTONES = [500, 1000, 2500, 5000, 10000];
+const CARDIO_KM_MILESTONES = [50, 100, 250, 500, 1000];
 
 function exerciseLifetimeTotal(exId) {
   return Object.keys(LOGS).reduce((s, k) => s + getVal(k, exId), 0);
@@ -1090,6 +1119,11 @@ function renderAchievements() {
   } else {
     html += '<div class="oa-empty">Keine Zielübungen vorhanden.</div>';
   }
+
+  extraExercises().filter(ex => ex.unit.trim().toLowerCase() === 'km').forEach(ex => {
+    html += badgeSectionHtml(`${ex.name} gesamt`, iconFor(ex), CARDIO_KM_MILESTONES, exerciseLifetimeTotal(ex.id), ex.unit);
+  });
+
   wrap.innerHTML = html;
 }
 
@@ -1151,6 +1185,13 @@ function setActiveView(target) {
 
 $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => setActiveView(btn.dataset.target)));
 
+$$('#analysisJumpNav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.dataset.jump);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
 /* ============================================================
    SHEETS
 ============================================================ */
@@ -1211,7 +1252,9 @@ function renderExerciseManager() {
   wrap.innerHTML = '';
   EXERCISES.forEach(ex => {
     const row = el('div', 'exercise-row');
-    const sub = ex.hasTarget ? `${ex.sets}× ${ex.reps} Wdh.` : `frei · Schritt ${fmtNum(ex.step || 1)} ${ex.unit}`;
+    const sub = ex.hasTarget
+      ? `${ex.sets}× ${ex.reps} Wdh.`
+      : `frei · Schritt ${fmtNum(ex.step || 1)} ${ex.unit}${ex.weeklyGoal ? ` · Ziel ${fmtNum(ex.weeklyGoal)} ${ex.unit}/Woche` : ''}`;
     row.innerHTML = `
       <div class="exercise-row-icon">${iconFor(ex)}</div>
       <div class="exercise-row-info">
@@ -1262,6 +1305,7 @@ function openExerciseForm(ex) {
   updateGoalFieldsUI();
   $('#exUnit').value = ex && !ex.hasTarget ? ex.unit : 'km';
   $('#exStep').value = ex && !ex.hasTarget ? (ex.step || 1) : 1;
+  $('#exWeeklyGoal').value = ex && !ex.hasTarget ? (ex.weeklyGoal || 0) : 0;
   formIcon = ex ? (ex.icon || 'custom') : 'custom';
   renderIconPicker();
   openSheet('#exerciseFormBackdrop');
@@ -1319,7 +1363,8 @@ $('#saveExerciseBtn').addEventListener('click', () => {
   } else {
     const unit = $('#exUnit').value.trim() || 'Stk.';
     const step = Math.max(0.01, parseFloat($('#exStep').value) || 1);
-    upsertExercise({ name, hasTarget: false, type: 'cardio', unit, step, icon: formIcon });
+    const weeklyGoal = Math.max(0, parseFloat($('#exWeeklyGoal').value) || 0);
+    upsertExercise({ name, hasTarget: false, type: 'cardio', unit, step, weeklyGoal, icon: formIcon });
   }
   closeSheet('#exerciseFormBackdrop');
   renderExerciseManager();
