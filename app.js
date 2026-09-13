@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.10.0 · 2026-09-13';
+const APP_VERSION = '1.11.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -823,6 +823,7 @@ function renderAnalysis() {
     statBox(best, 'Beste Streak (Wochen)') +
     statBox(overDays.length, 'Über 100% (30T)');
 
+  renderAchievements();
   renderHeatmap();
   renderDailyChart();
   renderExerciseTrend();
@@ -1047,6 +1048,49 @@ function renderWaterChart() {
   bars += `<line x1="0" y1="${guideY.toFixed(1)}" x2="${w}" y2="${guideY.toFixed(1)}" stroke="#3a3d44" stroke-width="1" stroke-dasharray="3,3"/>`;
 
   $('#chartWater').innerHTML = `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:150px; display:block;">${bars}</svg>`;
+}
+
+/* ---- Erfolge / Badges ---- */
+const STREAK_MILESTONES = [1, 2, 4, 8, 12, 26, 52];
+const LOGGED_DAYS_MILESTONES = [7, 30, 100, 365];
+const WATER_DAYS_MILESTONES = [7, 30, 100];
+const VOLUME_MILESTONES = [500, 1000, 2500, 5000, 10000];
+
+function exerciseLifetimeTotal(exId) {
+  return Object.keys(LOGS).reduce((s, k) => s + getVal(k, exId), 0);
+}
+function waterGoalDaysCount() {
+  const goal = SETTINGS.waterGoal || 2000;
+  return Object.keys(WATER).filter(k => waterTotal(k) >= goal).length;
+}
+function badgeSectionHtml(title, icon, values, current, unit) {
+  let html = `<div class="badge-section-title">${title}</div><div class="badge-grid">`;
+  values.forEach(v => {
+    const unlocked = current >= v;
+    html += `<div class="badge-chip ${unlocked ? 'unlocked' : ''}"><span class="badge-icon">${icon}</span><b>${v.toLocaleString('de-DE')}</b><span>${unit}</span></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+function renderAchievements() {
+  const wrap = $('#achievementsPanel');
+  const { best } = computeWeekStreaks();
+  const loggedDays = Object.keys(LOGS).filter(hasEntry).length;
+
+  let html = '';
+  html += badgeSectionHtml('🔥 Wochen-Streak (beste je erreichte)', '🔥', STREAK_MILESTONES, best, 'Wochen');
+  html += badgeSectionHtml('📅 Tage geloggt', '📅', LOGGED_DAYS_MILESTONES, loggedDays, 'Tage');
+  html += badgeSectionHtml('💧 Wasserziel erreicht', '💧', WATER_DAYS_MILESTONES, waterGoalDaysCount(), 'Tage');
+
+  const goalList = goalExercises();
+  if (goalList.length) {
+    goalList.forEach(ex => {
+      html += badgeSectionHtml(`${ex.name} gesamt`, iconFor(ex), VOLUME_MILESTONES, exerciseLifetimeTotal(ex.id), ex.unit);
+    });
+  } else {
+    html += '<div class="oa-empty">Keine Zielübungen vorhanden.</div>';
+  }
+  wrap.innerHTML = html;
 }
 
 function renderBestStats() {
