@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.8.0 · 2026-09-12';
+const APP_VERSION = '1.9.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -41,6 +41,7 @@ const SETTINGS_KEY = 'grind_settings_v1';
 const EXERCISES_KEY = 'grind_exercises_v1';
 const WATER_KEY = 'grind_water_v1';
 const WEIGHT_KEY = 'grind_weight_v1';
+const NOTES_KEY = 'grind_notes_v1';
 
 function loadLogs() {
   let logs;
@@ -65,6 +66,12 @@ function loadWeight() {
   catch { return {}; }
 }
 function saveWeightData(w) { localStorage.setItem(WEIGHT_KEY, JSON.stringify(w)); }
+
+function loadNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveNotes(n) { localStorage.setItem(NOTES_KEY, JSON.stringify(n)); }
 
 function recalcTargets(list) {
   list.forEach(ex => { if (ex.hasTarget) ex.target = ex.sets * ex.reps; });
@@ -120,6 +127,7 @@ saveExercises(EXERCISES);
 let LOGS = loadLogs();
 let WATER = loadWater();
 let WEIGHT = loadWeight();
+let NOTES = loadNotes();
 let SETTINGS = loadSettings();
 
 function goalExercises() { return EXERCISES.filter(e => e.hasTarget); }
@@ -208,6 +216,35 @@ function latestWeightBefore(dateKey) {
   const keys = Object.keys(WEIGHT).filter(k => k <= dateKey).sort();
   if (!keys.length) return null;
   return WEIGHT[keys[keys.length - 1]];
+}
+
+const MOODS = [
+  { key: 'great', emoji: '💪', label: 'Stark' },
+  { key: 'good', emoji: '🙂', label: 'Gut' },
+  { key: 'okay', emoji: '😐', label: 'Okay' },
+  { key: 'tired', emoji: '😓', label: 'Müde' },
+  { key: 'sore', emoji: '🤕', label: 'Schmerzen' },
+];
+function moodEmojiFor(moodKey) {
+  const m = MOODS.find(x => x.key === moodKey);
+  return m ? m.emoji : '';
+}
+function getNote(dateKey) { return NOTES[dateKey] || null; }
+function setMood(dateKey, moodKey) {
+  const entry = { ...(NOTES[dateKey] || {}) };
+  if (entry.mood === moodKey || moodKey == null) delete entry.mood;
+  else entry.mood = moodKey;
+  if (!entry.mood && !entry.text) delete NOTES[dateKey];
+  else NOTES[dateKey] = entry;
+  saveNotes(NOTES);
+}
+function setNoteText(dateKey, text) {
+  text = (text || '').trim();
+  const entry = { ...(NOTES[dateKey] || {}) };
+  if (text) entry.text = text; else delete entry.text;
+  if (!entry.mood && !entry.text) delete NOTES[dateKey];
+  else NOTES[dateKey] = entry;
+  saveNotes(NOTES);
 }
 
 /* ============================================================
@@ -385,6 +422,42 @@ function renderWeightToday() {
 }
 $('#weightValueDisplay').addEventListener('click', () => promptSetWeight());
 $('#weightCard').addEventListener('click', e => { if (!e.target.closest('#weightValueDisplay')) promptSetWeight(); });
+
+function renderNoteToday() {
+  const key = todayKey();
+  const note = getNote(key) || {};
+  const moodRow = $('#moodRow');
+  moodRow.innerHTML = '';
+  MOODS.forEach(m => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mood-btn' + (note.mood === m.key ? ' mood-active' : '');
+    btn.textContent = m.emoji;
+    btn.setAttribute('aria-label', m.label);
+    btn.title = m.label;
+    btn.addEventListener('click', () => {
+      setMood(key, note.mood === m.key ? null : m.key);
+      renderNoteToday();
+      renderHistory();
+    });
+    moodRow.appendChild(btn);
+  });
+  const textDisplay = $('#noteTextDisplay');
+  textDisplay.textContent = note.text || 'Notiz hinzufügen …';
+  textDisplay.classList.toggle('has-text', !!note.text);
+}
+function promptSetNote(dateKey) {
+  const key = dateKey || todayKey();
+  const note = getNote(key) || {};
+  const label = key === todayKey() ? 'heute' : `am ${keyToDate(key).getDate()}.${keyToDate(key).getMonth() + 1}.`;
+  const input = prompt(`Notiz für ${label} (z. B. wie du dich gefühlt hast):`, note.text || '');
+  if (input === null) return;
+  setNoteText(key, input);
+  renderNoteToday();
+  renderHistory();
+  if (key !== todayKey()) renderDayNoteBody();
+}
+$('#noteTextDisplay').addEventListener('click', () => promptSetNote());
 
 function renderExerciseCards() {
   const key = todayKey();
@@ -570,9 +643,11 @@ function renderHistory() {
       return `<span class="dot ${cls}"></span>`;
     }).join('');
     const water = waterTotal(key);
+    const note = getNote(key);
     row.innerHTML = `
       <div class="history-date"><b>${d.getDate()}.</b><span>${WEEKDAYS_SHORT[d.getDay()]}</span></div>
       <div class="history-dots">${dots}</div>
+      ${note && note.mood ? `<div class="history-mood">${moodEmojiFor(note.mood)}</div>` : ''}
       ${water ? `<div class="history-water">💧${(water / 1000).toFixed(1)}L</div>` : ''}
       <div class="history-total ${pct >= 100 ? 'full' : ''}">${pct}%</div>
     `;
@@ -616,6 +691,7 @@ function openDayDetail(key) {
   renderDayDetailBody();
   renderDayWaterBody();
   renderDayWeightBody();
+  renderDayNoteBody();
   openSheet('#dayBackdrop');
 }
 function renderDayDetailBody() {
@@ -687,6 +763,39 @@ function renderDayWeightBody() {
     </div>
   `;
   wrap.querySelector('[data-act="editWeight"]').addEventListener('click', () => promptSetWeight(key));
+}
+function renderDayNoteBody() {
+  const key = activeDayKey;
+  const wrap = $('#dayNoteBody');
+  const note = getNote(key) || {};
+  wrap.innerHTML = `<h3 class="day-note-title">📝 Notiz &amp; Stimmung</h3>`;
+  const moodRow = el('div', 'mood-row');
+  moodRow.style.marginBottom = '10px';
+  MOODS.forEach(m => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mood-btn' + (note.mood === m.key ? ' mood-active' : '');
+    btn.textContent = m.emoji;
+    btn.setAttribute('aria-label', m.label);
+    btn.title = m.label;
+    btn.addEventListener('click', () => {
+      setMood(key, note.mood === m.key ? null : m.key);
+      renderDayNoteBody();
+      refreshAll();
+    });
+    moodRow.appendChild(btn);
+  });
+  wrap.appendChild(moodRow);
+  const row = el('div', 'day-item');
+  row.innerHTML = `
+    <div>
+      <div class="dn">Notiz bearbeiten</div>
+      <div class="dt">${note.text ? note.text : 'Tippen zum Eintragen'}</div>
+    </div>
+    <div class="dv" data-act="editNote" style="cursor:pointer;">✎</div>
+  `;
+  row.querySelector('[data-act="editNote"]').addEventListener('click', () => promptSetNote(key));
+  wrap.appendChild(row);
 }
 
 /* ============================================================
@@ -970,6 +1079,7 @@ function refreshAll() {
   renderExtraCards();
   renderWaterToday();
   renderWeightToday();
+  renderNoteToday();
   updateRing();
   renderHistory();
   renderAnalysis();
@@ -998,13 +1108,15 @@ $('#closeDay').addEventListener('click', () => closeSheet('#dayBackdrop'));
 $('#dayBackdrop').addEventListener('click', e => { if (e.target.id === 'dayBackdrop') closeSheet('#dayBackdrop'); });
 
 $('#resetBtn').addEventListener('click', () => {
-  if (confirm('Wirklich ALLE Trainings-, Wasser- und Gewichtsdaten unwiderruflich löschen?')) {
+  if (confirm('Wirklich ALLE Trainings-, Wasser-, Gewichts- und Notizdaten unwiderruflich löschen?')) {
     LOGS = {};
     WATER = {};
     WEIGHT = {};
+    NOTES = {};
     saveLogs(LOGS);
     saveWater(WATER);
     saveWeightData(WEIGHT);
+    saveNotes(NOTES);
     refreshAll();
     closeSheet('#settingsBackdrop');
   }
@@ -1195,7 +1307,7 @@ function reportUpdateCheckResult() {
    BACKUP: EXPORT / IMPORT
 ============================================================ */
 $('#exportBtn').addEventListener('click', () => {
-  const payload = { exportedAt: new Date().toISOString(), logs: LOGS, settings: SETTINGS, exercises: EXERCISES, water: WATER, weight: WEIGHT };
+  const payload = { exportedAt: new Date().toISOString(), logs: LOGS, settings: SETTINGS, exercises: EXERCISES, water: WATER, weight: WEIGHT, notes: NOTES };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1215,6 +1327,7 @@ $('#importFile').addEventListener('change', e => {
       if (data.logs) { LOGS = data.logs; saveLogs(LOGS); }
       if (data.water) { WATER = data.water; saveWater(WATER); }
       if (data.weight) { WEIGHT = data.weight; saveWeightData(WEIGHT); }
+      if (data.notes) { NOTES = data.notes; saveNotes(NOTES); }
       if (data.exercises) { EXERCISES = recalcTargets(data.exercises); saveExercises(EXERCISES); }
       if (data.settings) { SETTINGS = { ...SETTINGS, ...data.settings }; saveSettings(SETTINGS); }
       alert('Import erfolgreich!');
