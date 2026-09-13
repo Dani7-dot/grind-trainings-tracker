@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.14.0 · 2026-09-13';
+const APP_VERSION = '1.15.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -607,6 +607,10 @@ function renderTodayHeader() {
   const now = new Date();
   $('#todayDate').textContent = `${WEEKDAYS[now.getDay()]}, ${now.getDate()}. ${MONTHS[now.getMonth()]}`;
 }
+
+$('#ringInfoToggle').addEventListener('click', () => {
+  $('#ringInfoText').hidden = !$('#ringInfoText').hidden;
+});
 
 /* ============================================================
    WATER — TODAY
