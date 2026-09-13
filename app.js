@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.11.0 · 2026-09-13';
+const APP_VERSION = '1.12.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -908,12 +908,12 @@ function buildLineChartSVG(points, opts) {
 
 let selectedTrendExId = null;
 function renderExerciseTrend() {
-  const list = goalExercises();
+  const list = EXERCISES;
   const tabsWrap = $('#exerciseTrendTabs');
   const chartWrap = $('#exerciseTrendChart');
   if (!list.length) {
     tabsWrap.innerHTML = '';
-    chartWrap.innerHTML = '<div class="oa-empty">Keine Zielübungen vorhanden.</div>';
+    chartWrap.innerHTML = '<div class="oa-empty">Keine Übungen vorhanden.</div>';
     return;
   }
   if (!selectedTrendExId || !list.find(e => e.id === selectedTrendExId)) selectedTrendExId = list[0].id;
@@ -926,7 +926,8 @@ function renderExerciseTrend() {
   const ex = list.find(e => e.id === selectedTrendExId);
   const days = rangeKeys(30);
   const points = days.map(k => ({ key: k, val: hasEntry(k) && getVal(k, ex.id) > 0 ? getVal(k, ex.id) : null }));
-  chartWrap.innerHTML = buildLineChartSVG(points, { color: 'var(--lime)', unit: ex.unit, zeroBased: true });
+  const color = ex.hasTarget ? 'var(--lime)' : 'var(--orange)';
+  chartWrap.innerHTML = buildLineChartSVG(points, { color, unit: ex.unit, zeroBased: true });
 }
 
 function renderWeightStats() {
@@ -1055,6 +1056,7 @@ const STREAK_MILESTONES = [1, 2, 4, 8, 12, 26, 52];
 const LOGGED_DAYS_MILESTONES = [7, 30, 100, 365];
 const WATER_DAYS_MILESTONES = [7, 30, 100];
 const VOLUME_MILESTONES = [500, 1000, 2500, 5000, 10000];
+const CARDIO_KM_MILESTONES = [50, 100, 250, 500, 1000];
 
 function exerciseLifetimeTotal(exId) {
   return Object.keys(LOGS).reduce((s, k) => s + getVal(k, exId), 0);
@@ -1090,6 +1092,11 @@ function renderAchievements() {
   } else {
     html += '<div class="oa-empty">Keine Zielübungen vorhanden.</div>';
   }
+
+  extraExercises().filter(ex => ex.unit.trim().toLowerCase() === 'km').forEach(ex => {
+    html += badgeSectionHtml(`${ex.name} gesamt`, iconFor(ex), CARDIO_KM_MILESTONES, exerciseLifetimeTotal(ex.id), ex.unit);
+  });
+
   wrap.innerHTML = html;
 }
 
