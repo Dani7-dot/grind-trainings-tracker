@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.15.0 · 2026-09-13';
+const APP_VERSION = '1.16.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -232,11 +232,11 @@ function latestWeightBefore(dateKey) {
 }
 
 const MOODS = [
-  { key: 'great', emoji: '💪', label: 'Stark' },
-  { key: 'good', emoji: '🙂', label: 'Gut' },
-  { key: 'okay', emoji: '😐', label: 'Okay' },
-  { key: 'tired', emoji: '😓', label: 'Müde' },
-  { key: 'sore', emoji: '🤕', label: 'Schmerzen' },
+  { key: 'great', emoji: '💪', label: 'Stark', score: 5 },
+  { key: 'good', emoji: '🙂', label: 'Gut', score: 4 },
+  { key: 'okay', emoji: '😐', label: 'Okay', score: 3 },
+  { key: 'tired', emoji: '😓', label: 'Müde', score: 2 },
+  { key: 'sore', emoji: '🤕', label: 'Schmerzen', score: 1 },
 ];
 function moodEmojiFor(moodKey) {
   const m = MOODS.find(x => x.key === moodKey);
@@ -851,6 +851,7 @@ function renderAnalysis() {
     statBox(overDays.length, 'Über 100% (30T)');
 
   renderAchievements();
+  renderMoodCorrelation();
   renderHeatmap();
   renderDailyChart();
   renderExerciseTrend();
@@ -1129,6 +1130,63 @@ function renderAchievements() {
   });
 
   wrap.innerHTML = html;
+}
+
+/* ---- Stimmung ⇄ Training Korrelation ---- */
+const MOOD_CORRELATION_MIN_SAMPLE = 3;
+function moodEmojiForScore(avgScore) {
+  return MOODS.reduce((closest, m) => Math.abs(m.score - avgScore) < Math.abs(closest.score - avgScore) ? m : closest).emoji;
+}
+function computeMoodTrainingCorrelation() {
+  const moodDays = Object.keys(NOTES).filter(k => NOTES[k] && NOTES[k].mood);
+  const withTraining = [];
+  const withoutTraining = [];
+  moodDays.forEach(k => {
+    const mood = MOODS.find(m => m.key === NOTES[k].mood);
+    if (!mood) return;
+    (hasEntry(k) ? withTraining : withoutTraining).push(mood.score);
+  });
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  return {
+    avgWith: withTraining.length ? avg(withTraining) : null,
+    countWith: withTraining.length,
+    avgWithout: withoutTraining.length ? avg(withoutTraining) : null,
+    countWithout: withoutTraining.length,
+  };
+}
+function renderMoodCorrelation() {
+  const wrap = $('#moodCorrelationPanel');
+  const { avgWith, countWith, avgWithout, countWithout } = computeMoodTrainingCorrelation();
+  if (countWith < MOOD_CORRELATION_MIN_SAMPLE || countWithout < MOOD_CORRELATION_MIN_SAMPLE) {
+    const have = countWith + countWithout;
+    wrap.innerHTML = `<div class="oa-empty">Noch nicht genug Daten für einen Vergleich. Trage an mindestens ${MOOD_CORRELATION_MIN_SAMPLE} Trainings- und ${MOOD_CORRELATION_MIN_SAMPLE} trainingsfreien Tagen eine Stimmung ein (bisher ${have} Tage insgesamt).</div>`;
+    return;
+  }
+  const diff = avgWith - avgWithout;
+  let verdict;
+  if (Math.abs(diff) < 0.3) {
+    verdict = 'Kein deutlicher Unterschied zwischen Trainings- und trainingsfreien Tagen erkennbar.';
+  } else if (diff > 0) {
+    verdict = `Deine Stimmung ist an Trainingstagen im Schnitt besser (+${diff.toFixed(1)} auf der 5er-Skala).`;
+  } else {
+    verdict = `Deine Stimmung ist an trainingsfreien Tagen im Schnitt besser (${diff.toFixed(1)} auf der 5er-Skala).`;
+  }
+  wrap.innerHTML = `
+    <div class="mood-corr-row">
+      <div class="mood-corr-col">
+        <div class="mood-corr-emoji">${moodEmojiForScore(avgWith)}</div>
+        <div class="mood-corr-label">Trainingstage</div>
+        <div class="mood-corr-sub">Ø ${avgWith.toFixed(1)} · ${countWith} Tage</div>
+      </div>
+      <div class="mood-corr-col">
+        <div class="mood-corr-emoji">${moodEmojiForScore(avgWithout)}</div>
+        <div class="mood-corr-label">Trainingsfreie Tage</div>
+        <div class="mood-corr-sub">Ø ${avgWithout.toFixed(1)} · ${countWithout} Tage</div>
+      </div>
+    </div>
+    <p class="mood-corr-verdict">${verdict}</p>
+    <p class="mood-corr-disclaimer">Grobe Tendenz auf Basis deiner eigenen Einträge, keine wissenschaftliche Auswertung.</p>
+  `;
 }
 
 function renderBestStats() {
