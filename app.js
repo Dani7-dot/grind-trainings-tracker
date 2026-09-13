@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.9.0 · 2026-09-13';
+const APP_VERSION = '1.11.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -42,6 +42,8 @@ const EXERCISES_KEY = 'grind_exercises_v1';
 const WATER_KEY = 'grind_water_v1';
 const WEIGHT_KEY = 'grind_weight_v1';
 const NOTES_KEY = 'grind_notes_v1';
+const LAST_BACKUP_KEY = 'grind_last_backup_v1';
+const BACKUP_REMINDER_DAYS = 14;
 
 function loadLogs() {
   let logs;
@@ -72,6 +74,17 @@ function loadNotes() {
   catch { return {}; }
 }
 function saveNotes(n) { localStorage.setItem(NOTES_KEY, JSON.stringify(n)); }
+
+function getLastBackup() {
+  const v = localStorage.getItem(LAST_BACKUP_KEY);
+  return v ? new Date(v) : null;
+}
+function markBackupNow() { localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString()); }
+function daysSinceLastBackup() {
+  const last = getLastBackup();
+  if (!last) return null;
+  return Math.floor((Date.now() - last.getTime()) / 86400000);
+}
 
 function recalcTargets(list) {
   list.forEach(ex => { if (ex.hasTarget) ex.target = ex.sets * ex.reps; });
@@ -810,6 +823,7 @@ function renderAnalysis() {
     statBox(best, 'Beste Streak (Wochen)') +
     statBox(overDays.length, 'Über 100% (30T)');
 
+  renderAchievements();
   renderHeatmap();
   renderDailyChart();
   renderExerciseTrend();
@@ -1034,6 +1048,49 @@ function renderWaterChart() {
   bars += `<line x1="0" y1="${guideY.toFixed(1)}" x2="${w}" y2="${guideY.toFixed(1)}" stroke="#3a3d44" stroke-width="1" stroke-dasharray="3,3"/>`;
 
   $('#chartWater').innerHTML = `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:150px; display:block;">${bars}</svg>`;
+}
+
+/* ---- Erfolge / Badges ---- */
+const STREAK_MILESTONES = [1, 2, 4, 8, 12, 26, 52];
+const LOGGED_DAYS_MILESTONES = [7, 30, 100, 365];
+const WATER_DAYS_MILESTONES = [7, 30, 100];
+const VOLUME_MILESTONES = [500, 1000, 2500, 5000, 10000];
+
+function exerciseLifetimeTotal(exId) {
+  return Object.keys(LOGS).reduce((s, k) => s + getVal(k, exId), 0);
+}
+function waterGoalDaysCount() {
+  const goal = SETTINGS.waterGoal || 2000;
+  return Object.keys(WATER).filter(k => waterTotal(k) >= goal).length;
+}
+function badgeSectionHtml(title, icon, values, current, unit) {
+  let html = `<div class="badge-section-title">${title}</div><div class="badge-grid">`;
+  values.forEach(v => {
+    const unlocked = current >= v;
+    html += `<div class="badge-chip ${unlocked ? 'unlocked' : ''}"><span class="badge-icon">${icon}</span><b>${v.toLocaleString('de-DE')}</b><span>${unit}</span></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+function renderAchievements() {
+  const wrap = $('#achievementsPanel');
+  const { best } = computeWeekStreaks();
+  const loggedDays = Object.keys(LOGS).filter(hasEntry).length;
+
+  let html = '';
+  html += badgeSectionHtml('🔥 Wochen-Streak (beste je erreichte)', '🔥', STREAK_MILESTONES, best, 'Wochen');
+  html += badgeSectionHtml('📅 Tage geloggt', '📅', LOGGED_DAYS_MILESTONES, loggedDays, 'Tage');
+  html += badgeSectionHtml('💧 Wasserziel erreicht', '💧', WATER_DAYS_MILESTONES, waterGoalDaysCount(), 'Tage');
+
+  const goalList = goalExercises();
+  if (goalList.length) {
+    goalList.forEach(ex => {
+      html += badgeSectionHtml(`${ex.name} gesamt`, iconFor(ex), VOLUME_MILESTONES, exerciseLifetimeTotal(ex.id), ex.unit);
+    });
+  } else {
+    html += '<div class="oa-empty">Keine Zielübungen vorhanden.</div>';
+  }
+  wrap.innerHTML = html;
 }
 
 function renderBestStats() {
@@ -1314,6 +1371,8 @@ $('#exportBtn').addEventListener('click', () => {
   a.href = url; a.download = `grind-backup-${todayKey()}.json`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  markBackupNow();
+  renderBackupStatus();
 });
 $('#importBtn').addEventListener('click', () => $('#importFile').click());
 $('#importFile').addEventListener('change', e => {
@@ -1361,6 +1420,22 @@ function syncSettingsUI() {
   $('#appVersion').textContent = `GRIND · v${APP_VERSION}`;
   $('#checkUpdateBtn').disabled = false;
   $('#updateCheckNote').textContent = '';
+  renderBackupStatus();
+}
+
+function renderBackupStatus() {
+  const note = $('#backupStatusNote');
+  const days = daysSinceLastBackup();
+  const stale = days === null || days >= BACKUP_REMINDER_DAYS;
+  note.classList.toggle('warning', stale);
+  if (days === null) {
+    note.textContent = '⚠️ Noch kein Backup erstellt — deine Daten liegen bisher nur auf diesem Gerät.';
+  } else if (days === 0) {
+    note.textContent = 'Letztes Backup: heute ✓';
+  } else {
+    const suffix = stale ? ' — ein neues Backup wird empfohlen.' : '';
+    note.textContent = `Letztes Backup: vor ${days} Tag${days === 1 ? '' : 'en'}${suffix}`;
+  }
 }
 
 function renderReminderTimes() {
@@ -1497,6 +1572,12 @@ function buildWeeklySummaryText() {
   let txt = `${metDays}/7 Tage Ziel erreicht.`;
   if (extraParts.length) txt += ` ${extraParts.join(', ')}.`;
   txt += ` Ø Wasser ${waterAvg} ml/Tag.`;
+  const backupDays = daysSinceLastBackup();
+  if (backupDays === null || backupDays >= BACKUP_REMINDER_DAYS) {
+    txt += backupDays === null
+      ? ' 💾 Noch kein Backup erstellt — in den Einstellungen exportieren.'
+      : ` 💾 Letztes Backup vor ${backupDays} Tagen — Export empfohlen.`;
+  }
   return txt;
 }
 

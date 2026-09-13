@@ -1,4 +1,4 @@
-const CACHE = 'grind-v9';
+const CACHE = 'grind-v11';
 const ASSETS = [
   './',
   './index.html',

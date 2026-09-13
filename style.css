@@ -328,6 +328,7 @@ h1,h2,h3{ font-family: var(--font-display); letter-spacing: .01em; margin: 0; }
 .setting-label{ font-weight:700; font-size:14.5px; }
 .setting-sub{ font-size:12px; color: var(--text-faint); margin-top:2px; }
 .setting-note{ font-size:12px; color: var(--text-faint); line-height:1.5; padding: 12px 2px 4px; }
+.setting-note.warning{ color: var(--orange); font-weight:600; }
 
 input[type="time"]{
   background: var(--bg-card); border:1px solid var(--line); color: var(--text);
@@ -518,6 +519,22 @@ input[type="time"]{
 .hm-cell.hm-today{ box-shadow: 0 0 0 1.5px var(--accent-text) inset; }
 
 .day-weight-title{ font-family: var(--font-display); font-size:17px; margin: 18px 0 8px; color: var(--weight); }
+
+/* ============ ERFOLGE / BADGES ============ */
+.badge-section-title{ font-family: var(--font-body); font-weight:700; font-size:12px; color: var(--text-dim); margin: 14px 0 8px; }
+.badge-section-title:first-child{ margin-top:0; }
+.badge-grid{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+.badge-chip{
+  display:flex; flex-direction:column; align-items:center; gap:2px; width:64px;
+  padding:9px 4px 8px; border-radius:12px; border:1px solid var(--line); background: var(--bg-card);
+}
+.badge-chip .badge-icon{ font-size:19px; filter:grayscale(1); opacity:.4; line-height:1; }
+.badge-chip .badge-icon svg{ width:19px; height:19px; }
+.badge-chip b{ font-family: var(--font-display); font-size:13px; color: var(--text-faint); margin-top:2px; }
+.badge-chip span{ font-size:8.5px; color: var(--text-faint); text-transform:uppercase; letter-spacing:.03em; }
+.badge-chip.unlocked{ border-color: var(--accent-text); background: rgba(215,255,61,.08); }
+.badge-chip.unlocked .badge-icon{ filter:none; opacity:1; }
+.badge-chip.unlocked b{ color: var(--text); }
 
 /* ============ NOTIZ & STIMMUNG ============ */
 .card.is-note{ text-align:center; }
