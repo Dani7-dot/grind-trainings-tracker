@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.16.1 · 2026-09-13';
+const APP_VERSION = '1.17.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -43,6 +43,7 @@ const WATER_KEY = 'grind_water_v1';
 const WEIGHT_KEY = 'grind_weight_v1';
 const NOTES_KEY = 'grind_notes_v1';
 const LAST_BACKUP_KEY = 'grind_last_backup_v1';
+const PROGRESSION_DISMISS_KEY = 'grind_progression_dismissed_v1';
 const BACKUP_REMINDER_DAYS = 14;
 
 function loadLogs() {
@@ -85,6 +86,13 @@ function daysSinceLastBackup() {
   if (!last) return null;
   return Math.floor((Date.now() - last.getTime()) / 86400000);
 }
+
+function loadProgressionDismissed() {
+  try { return JSON.parse(localStorage.getItem(PROGRESSION_DISMISS_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveProgressionDismissed(d) { localStorage.setItem(PROGRESSION_DISMISS_KEY, JSON.stringify(d)); }
+let PROGRESSION_DISMISSED = loadProgressionDismissed();
 
 function recalcTargets(list) {
   list.forEach(ex => { if (ex.hasTarget) ex.target = ex.sets * ex.reps; });
@@ -723,6 +731,24 @@ function computeWeekStreaks() {
   return { current, best: Math.max(best, current) };
 }
 
+/* ---- Progressive Zielanpassung ---- */
+const OVERACHIEVE_RATIO = 1.15;
+const PROGRESSION_MIN_STREAK = 4;
+
+function overachieveStreak(ex) {
+  let streak = 0;
+  let wk = prevWeekKey(currentWeekStartKey());
+  while (weekRatio(wk, ex) >= OVERACHIEVE_RATIO) {
+    streak++;
+    wk = prevWeekKey(wk);
+  }
+  return streak;
+}
+function suggestedProgression(ex) {
+  const bump = Math.max(1, Math.round(ex.reps * 0.1));
+  return { sets: ex.sets, reps: ex.reps + bump };
+}
+
 /* ============================================================
    DAY DETAIL MODAL
 ============================================================ */
@@ -1318,7 +1344,60 @@ function changeWaterGoal(delta) {
 /* ============================================================
    EXERCISE MANAGER
 ============================================================ */
+function renderProgressionSuggestions() {
+  const wrap = $('#progressionSuggestions');
+  if (!wrap) return;
+  const suggestions = goalExercises()
+    .map(ex => ({ ex, streak: overachieveStreak(ex) }))
+    .filter(({ ex, streak }) => streak >= PROGRESSION_MIN_STREAK && (PROGRESSION_DISMISSED[ex.id] || 0) < streak);
+
+  if (!suggestions.length) { wrap.innerHTML = ''; return; }
+
+  wrap.innerHTML = suggestions.map(({ ex, streak }) => {
+    const { sets, reps } = suggestedProgression(ex);
+    return `
+      <div class="progression-card" data-ex="${ex.id}">
+        <div class="progression-text">
+          <b>💡 ${escapeHtml(ex.name)}</b>
+          <span>${streak} Wochen in Folge deutlich über Ziel — auf ${sets}× ${reps} erhöhen?</span>
+        </div>
+        <div class="progression-actions">
+          <button type="button" class="btn-link" data-act="dismiss">Nicht jetzt</button>
+          <button type="button" class="btn-secondary" data-act="apply">Übernehmen</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('[data-act="apply"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const exId = btn.closest('.progression-card').dataset.ex;
+      const ex = EXERCISES.find(e => e.id === exId);
+      if (!ex) return;
+      const { sets, reps } = suggestedProgression(ex);
+      ex.sets = sets; ex.reps = reps; ex.target = sets * reps;
+      saveExercises(EXERCISES);
+      delete PROGRESSION_DISMISSED[exId];
+      saveProgressionDismissed(PROGRESSION_DISMISSED);
+      renderProgressionSuggestions();
+      renderExerciseManager();
+      refreshAll();
+    });
+  });
+  wrap.querySelectorAll('[data-act="dismiss"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const exId = btn.closest('.progression-card').dataset.ex;
+      const ex = EXERCISES.find(e => e.id === exId);
+      if (!ex) return;
+      PROGRESSION_DISMISSED[exId] = overachieveStreak(ex);
+      saveProgressionDismissed(PROGRESSION_DISMISSED);
+      renderProgressionSuggestions();
+    });
+  });
+}
+
 function renderExerciseManager() {
+  renderProgressionSuggestions();
   const wrap = $('#exerciseManager');
   wrap.innerHTML = '';
   EXERCISES.forEach(ex => {
