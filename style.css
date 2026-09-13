@@ -132,6 +132,17 @@ h1,h2,h3{ font-family: var(--font-display); letter-spacing: .01em; margin: 0; }
 .ring-label span{ font-family: var(--font-display); font-size:22px; }
 .ring-label small{ font-size:9px; color: var(--text-faint); text-transform:uppercase; letter-spacing:.08em; margin-top:1px; }
 
+.ring-info-toggle{
+  display:block; background:none; border:none; padding:0; margin: -6px 0 14px;
+  font-family: var(--font-body); font-size:11.5px; color: var(--text-faint);
+  text-decoration: underline; text-underline-offset:2px; cursor:pointer;
+}
+.ring-info-text{
+  font-size:12.5px; line-height:1.55; color: var(--text-dim);
+  background: var(--bg-card); border:1px solid var(--line-soft); border-radius: var(--radius-sm);
+  padding:12px 14px; margin: -6px 0 16px;
+}
+
 /* ============ EXERCISE CARDS ============ */
 .section-label{
   font-family: var(--font-body); font-weight:700; font-size:12px;
