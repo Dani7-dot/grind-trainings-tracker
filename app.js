@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.16.0 · 2026-09-13';
+const APP_VERSION = '1.16.1 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -295,6 +295,11 @@ const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
+/* Nutzereingaben (Übungsname, Einheit, Notiztext) kommen aus dem Formular oder
+   einer importierten Backup-Datei und dürfen niemals ungeprüft als HTML landen. */
+const HTML_ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const escapeHtml = str => String(str ?? '').replace(/[&<>"']/g, c => HTML_ESCAPE_MAP[c]);
+
 /* ============================================================
    THEME
 ============================================================ */
@@ -347,7 +352,7 @@ function burstConfetti() {
 }
 
 function celebrateExerciseDone(ex) {
-  celebrate(`<b>🎉 Wochenziel erreicht</b>${ex.name}`);
+  celebrate(`<b>🎉 Wochenziel erreicht</b>${escapeHtml(ex.name)}`);
 }
 function celebrateWeekComplete(streakCount, isNewBest) {
   const streakLabel = streakCount === 1 ? '1 Woche' : `${streakCount} Wochen`;
@@ -498,13 +503,13 @@ function renderExerciseCards() {
     const wDone = wSum >= wTarget;
     const card = el('div', 'card');
     const targetLabel = `Ziel: ${ex.sets}× ${ex.reps} (${ex.target} Wdh.)`;
-    const weekLabel = `Woche: ${fmtNum(wSum)} / ${wTarget} ${ex.unit}${wDone ? ' ✓' : ''}`;
+    const weekLabel = `Woche: ${fmtNum(wSum)} / ${wTarget} ${escapeHtml(ex.unit)}${wDone ? ' ✓' : ''}`;
     card.innerHTML = `
       <div class="card-top">
         <div style="display:flex; gap:12px; align-items:flex-start;">
           <div class="card-icon">${iconFor(ex)}</div>
           <div>
-            <div class="card-name">${ex.name}</div>
+            <div class="card-name">${escapeHtml(ex.name)}</div>
             <div class="card-target">${targetLabel}</div>
             <div class="card-week ${wDone ? 'done' : ''}">${weekLabel}</div>
           </div>
@@ -514,7 +519,7 @@ function renderExerciseCards() {
       <div class="card-mid">
         <div class="stepper">
           <button class="step-btn" data-act="minus" aria-label="Weniger">−</button>
-          <div class="step-value" data-act="set"><b>${fmtNum(val)}</b><small>${ex.unit}</small></div>
+          <div class="step-value" data-act="set"><b>${fmtNum(val)}</b><small>${escapeHtml(ex.unit)}</small></div>
           <button class="step-btn" data-act="plus" aria-label="Mehr">+</button>
         </div>
       </div>
@@ -547,7 +552,7 @@ function renderExtraCards() {
     const wDone = weeklyGoal > 0 && wSum >= weeklyGoal;
     const wPct = weeklyGoal ? Math.min(100, Math.round((wSum / weeklyGoal) * 100)) : 0;
     const targetLine = weeklyGoal
-      ? `Woche: ${fmtNum(wSum)} / ${fmtNum(weeklyGoal)} ${ex.unit}${wDone ? ' ✓' : ''}`
+      ? `Woche: ${fmtNum(wSum)} / ${fmtNum(weeklyGoal)} ${escapeHtml(ex.unit)}${wDone ? ' ✓' : ''}`
       : 'Kein Tagesziel — nur getrackt';
     const card = el('div', 'card is-cardio is-extra');
     card.innerHTML = `
@@ -555,7 +560,7 @@ function renderExtraCards() {
         <div style="display:flex; gap:12px; align-items:flex-start;">
           <div class="card-icon">${iconFor(ex)}</div>
           <div>
-            <div class="card-name">${ex.name}</div>
+            <div class="card-name">${escapeHtml(ex.name)}</div>
             <div class="card-target">${targetLine}</div>
           </div>
         </div>
@@ -563,12 +568,12 @@ function renderExtraCards() {
       <div class="card-mid">
         <div class="stepper">
           <button class="step-btn" data-act="minus" aria-label="Weniger">−</button>
-          <div class="step-value" data-act="set"><b>${fmtNum(val)}</b><small>${ex.unit}</small></div>
+          <div class="step-value" data-act="set"><b>${fmtNum(val)}</b><small>${escapeHtml(ex.unit)}</small></div>
           <button class="step-btn" data-act="plus" aria-label="Mehr">+</button>
         </div>
       </div>
       ${weeklyGoal ? `<div class="bar-row"><span class="bar-tag">Woche</span><div class="bar"><div class="bar-fill ${wDone ? 'over' : ''}" style="width:${wPct}%"></div></div></div>` : ''}
-      ${quick.length ? `<div class="card-quick">${quick.map(v => `<button type="button" data-amt="${v}">+${fmtNum(v)} ${ex.unit}</button>`).join('')}<button type="button" data-act="edit">✎ eingeben</button></div>` : ''}
+      ${quick.length ? `<div class="card-quick">${quick.map(v => `<button type="button" data-amt="${v}">+${fmtNum(v)} ${escapeHtml(ex.unit)}</button>`).join('')}<button type="button" data-act="edit">✎ eingeben</button></div>` : ''}
     `;
     card.querySelector('[data-act="plus"]').addEventListener('click', () => bump(ex, stepAmount(ex)));
     card.querySelector('[data-act="minus"]').addEventListener('click', () => bump(ex, -stepAmount(ex)));
@@ -741,16 +746,16 @@ function renderDayDetailBody() {
     const pct = ex.hasTarget ? Math.round((val / ex.target) * 100) : null;
     const detailLine = ex.hasTarget
       ? `${ex.sets}× ${ex.reps} Ziel · ${pct}%`
-      : (ex.weeklyGoal ? `Kein Tagesziel — Wochenziel ${fmtNum(ex.weeklyGoal)} ${ex.unit}` : 'Kein Ziel — nur getrackt');
+      : (ex.weeklyGoal ? `Kein Tagesziel — Wochenziel ${fmtNum(ex.weeklyGoal)} ${escapeHtml(ex.unit)}` : 'Kein Ziel — nur getrackt');
     const row = el('div', 'day-item');
     row.innerHTML = `
       <div>
-        <div class="dn">${ex.name}</div>
+        <div class="dn">${escapeHtml(ex.name)}</div>
         <div class="dt">${detailLine}</div>
       </div>
       <div class="stepper">
         <button class="step-btn" data-act="minus">−</button>
-        <div class="dv ${pct !== null && pct >= 100 ? 'over' : ''}" data-act="set" style="min-width:54px;text-align:center;cursor:pointer;">${fmtNum(val)}<small style="display:block;font-family:var(--font-body);font-size:9px;color:var(--text-faint);">${ex.unit}</small></div>
+        <div class="dv ${pct !== null && pct >= 100 ? 'over' : ''}" data-act="set" style="min-width:54px;text-align:center;cursor:pointer;">${fmtNum(val)}<small style="display:block;font-family:var(--font-body);font-size:9px;color:var(--text-faint);">${escapeHtml(ex.unit)}</small></div>
         <button class="step-btn" data-act="plus">+</button>
       </div>
     `;
@@ -830,7 +835,7 @@ function renderDayNoteBody() {
   row.innerHTML = `
     <div>
       <div class="dn">Notiz bearbeiten</div>
-      <div class="dt">${note.text ? note.text : 'Tippen zum Eintragen'}</div>
+      <div class="dt">${note.text ? escapeHtml(note.text) : 'Tippen zum Eintragen'}</div>
     </div>
     <div class="dv" data-act="editNote" style="cursor:pointer;">✎</div>
   `;
@@ -930,7 +935,8 @@ function buildLineChartSVG(points, opts) {
     <path d="${pathStr}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
     ${dots}
   </svg>`;
-  const footer = `<div class="trend-footer"><span>Start: ${fmtNum(first)} ${unit}</span><span>Aktuell: ${fmtNum(last)} ${unit}</span></div>`;
+  const safeUnit = escapeHtml(unit);
+  const footer = `<div class="trend-footer"><span>Start: ${fmtNum(first)} ${safeUnit}</span><span>Aktuell: ${fmtNum(last)} ${safeUnit}</span></div>`;
   return svg + footer;
 }
 
@@ -946,7 +952,7 @@ function renderExerciseTrend() {
   }
   if (!selectedTrendExId || !list.find(e => e.id === selectedTrendExId)) selectedTrendExId = list[0].id;
   tabsWrap.innerHTML = list.map(ex =>
-    `<button type="button" class="trend-tab ${ex.id === selectedTrendExId ? 'trend-tab-active' : ''}" data-id="${ex.id}">${ex.name}</button>`
+    `<button type="button" class="trend-tab ${ex.id === selectedTrendExId ? 'trend-tab-active' : ''}" data-id="${ex.id}">${escapeHtml(ex.name)}</button>`
   ).join('');
   tabsWrap.querySelectorAll('button').forEach(b => {
     b.addEventListener('click', () => { selectedTrendExId = b.dataset.id; renderExerciseTrend(); });
@@ -1023,7 +1029,7 @@ function renderPerExercise() {
     const pct = Math.min(100, Math.round((total / targetWeek) * 100));
     const row = el('div', 'pe-row');
     row.innerHTML = `
-      <div class="pe-head"><b>${ex.name}</b><span>${fmtNum(total)} / ${targetWeek} ${ex.unit}</span></div>
+      <div class="pe-head"><b>${escapeHtml(ex.name)}</b><span>${fmtNum(total)} / ${targetWeek} ${escapeHtml(ex.unit)}</span></div>
       <div class="pe-bar"><i style="width:${pct}%"></i></div>
     `;
     wrap.appendChild(row);
@@ -1038,10 +1044,11 @@ function renderExtraStats() {
   extraExercises().forEach(ex => {
     const weekTotal = weekSum(wk, ex.id);
     const monthTotal = month.reduce((s, k) => s + getVal(k, ex.id), 0);
-    const goalNote = ex.weeklyGoal ? ` · Ziel ${fmtNum(ex.weeklyGoal)} ${ex.unit}/Woche` : '';
+    const unit = escapeHtml(ex.unit);
+    const goalNote = ex.weeklyGoal ? ` · Ziel ${fmtNum(ex.weeklyGoal)} ${unit}/Woche` : '';
     const row = el('div', 'pe-row');
     row.innerHTML = `
-      <div class="pe-head"><b>${ex.name}</b><span>${fmtNum(weekTotal)} ${ex.unit} diese Woche · ${fmtNum(monthTotal)} ${ex.unit} (30 Tage)${goalNote}</span></div>
+      <div class="pe-head"><b>${escapeHtml(ex.name)}</b><span>${fmtNum(weekTotal)} ${unit} diese Woche · ${fmtNum(monthTotal)} ${unit} (30 Tage)${goalNote}</span></div>
       ${ex.weeklyGoal ? `<div class="pe-bar"><i style="width:${Math.min(100, Math.round((weekTotal / ex.weeklyGoal) * 100))}%"></i></div>` : ''}
     `;
     wrap.appendChild(row);
@@ -1098,10 +1105,12 @@ function waterGoalDaysCount() {
   return Object.keys(WATER).filter(k => waterTotal(k) >= goal).length;
 }
 function badgeSectionHtml(title, icon, values, current, unit) {
-  let html = `<div class="badge-section-title">${title}</div><div class="badge-grid">`;
+  const safeTitle = escapeHtml(title);
+  const safeUnit = escapeHtml(unit);
+  let html = `<div class="badge-section-title">${safeTitle}</div><div class="badge-grid">`;
   values.forEach(v => {
     const unlocked = current >= v;
-    html += `<div class="badge-chip ${unlocked ? 'unlocked' : ''}"><span class="badge-icon">${icon}</span><b>${v.toLocaleString('de-DE')}</b><span>${unit}</span></div>`;
+    html += `<div class="badge-chip ${unlocked ? 'unlocked' : ''}"><span class="badge-icon">${icon}</span><b>${v.toLocaleString('de-DE')}</b><span>${safeUnit}</span></div>`;
   });
   html += `</div>`;
   return html;
@@ -1205,7 +1214,7 @@ function renderBestStats() {
     keys.forEach(k => { const v = getVal(k, ex.id); if (v > best) { best = v; bestKey = k; } });
     if (best > 0) {
       const d = keyToDate(bestKey);
-      rows.push(`<div class="oa-row"><span>${ex.name}</span><b>${fmtNum(best)} ${ex.unit} <small style="font-family:var(--font-body);font-weight:500;color:var(--text-faint);">· ${d.getDate()}.${d.getMonth() + 1}.</small></b></div>`);
+      rows.push(`<div class="oa-row"><span>${escapeHtml(ex.name)}</span><b>${fmtNum(best)} ${escapeHtml(ex.unit)} <small style="font-family:var(--font-body);font-weight:500;color:var(--text-faint);">· ${d.getDate()}.${d.getMonth() + 1}.</small></b></div>`);
     }
   });
   wrap.innerHTML = rows.join('') || '<div class="oa-empty">Noch keine Daten für Bestleistungen.</div>';
@@ -1314,13 +1323,14 @@ function renderExerciseManager() {
   wrap.innerHTML = '';
   EXERCISES.forEach(ex => {
     const row = el('div', 'exercise-row');
+    const unit = escapeHtml(ex.unit);
     const sub = ex.hasTarget
       ? `${ex.sets}× ${ex.reps} Wdh.`
-      : `frei · Schritt ${fmtNum(ex.step || 1)} ${ex.unit}${ex.weeklyGoal ? ` · Ziel ${fmtNum(ex.weeklyGoal)} ${ex.unit}/Woche` : ''}`;
+      : `frei · Schritt ${fmtNum(ex.step || 1)} ${unit}${ex.weeklyGoal ? ` · Ziel ${fmtNum(ex.weeklyGoal)} ${unit}/Woche` : ''}`;
     row.innerHTML = `
       <div class="exercise-row-icon">${iconFor(ex)}</div>
       <div class="exercise-row-info">
-        <div class="exercise-row-name">${ex.name}</div>
+        <div class="exercise-row-name">${escapeHtml(ex.name)}</div>
         <div class="exercise-row-sub">${sub}</div>
       </div>
     `;
