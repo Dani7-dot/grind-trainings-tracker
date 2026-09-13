@@ -113,12 +113,25 @@ try {
     <h1 class="view-title">Analyse</h1>
     <div class="stat-row" id="analysisStatRow"></div>
 
-    <div class="panel">
+    <div class="jump-nav" id="analysisJumpNav">
+      <button type="button" data-jump="panel-achievements">Erfolge</button>
+      <button type="button" data-jump="panel-calendar">Kalender</button>
+      <button type="button" data-jump="panel-daily">Verlauf</button>
+      <button type="button" data-jump="panel-trend">Trend</button>
+      <button type="button" data-jump="panel-per-exercise">Kraft</button>
+      <button type="button" data-jump="panel-extra">Cardio</button>
+      <button type="button" data-jump="panel-water">Wasser</button>
+      <button type="button" data-jump="panel-weight">Gewicht</button>
+      <button type="button" data-jump="panel-best">Bestleistungen</button>
+      <button type="button" data-jump="panel-overachieve">Übererfüllung</button>
+    </div>
+
+    <div class="panel" id="panel-achievements">
       <h2 class="panel-title">Erfolge 🏆</h2>
       <div id="achievementsPanel"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-calendar">
       <div class="heatmap-head">
         <h2 class="panel-title" style="margin-bottom:0;">Kalender</h2>
         <div class="heatmap-nav">
@@ -130,45 +143,45 @@ try {
       <div id="heatmapGrid" class="hm-grid"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-daily">
       <h2 class="panel-title">Letzte 14 Tage — Tageserfüllung</h2>
       <div id="chartDaily" class="chart-wrap"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-trend">
       <h2 class="panel-title">Trend pro Übung (30 Tage)</h2>
       <div id="exerciseTrendTabs" class="trend-tabs"></div>
       <div id="exerciseTrendChart" class="chart-wrap"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-per-exercise">
       <h2 class="panel-title">Pro Übung diese Woche</h2>
       <div id="perExercise" class="per-exercise"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-extra">
       <h2 class="panel-title">Extra-Aktivitäten (ohne Ziel)</h2>
       <div id="extraStats" class="per-exercise"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-water">
       <h2 class="panel-title">Wasser</h2>
       <div id="waterStats" class="per-exercise"></div>
       <div id="chartWater" class="chart-wrap"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-weight">
       <h2 class="panel-title">Gewicht</h2>
       <div id="weightStats" class="per-exercise"></div>
       <div id="weightChart" class="chart-wrap"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-best">
       <h2 class="panel-title">Bestleistungen 🏆</h2>
       <div id="bestStats" class="overachieve"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="panel-overachieve">
       <h2 class="panel-title">Übererfüllung (letzte 30 Tage)</h2>
       <div id="overachieve" class="overachieve"></div>
     </div>
@@ -200,6 +213,7 @@ try {
     <div class="sheet-handle"></div>
     <h2 class="sheet-title">Einstellungen</h2>
 
+    <h2 class="section-label" style="margin-top:4px;">Darstellung</h2>
     <div class="setting-row">
       <div>
         <div class="setting-label">Helles Design</div>
@@ -211,6 +225,7 @@ try {
       </label>
     </div>
 
+    <h2 class="section-label">Erinnerungen</h2>
     <div class="setting-block">
       <div class="setting-row" style="border:none; padding-bottom:8px;">
         <div>
@@ -258,6 +273,7 @@ try {
 
     <p class="setting-note" id="notifNote"></p>
 
+    <h2 class="section-label">Ziele &amp; Übungen</h2>
     <div class="setting-block">
       <div class="setting-row" style="border:none; padding-bottom:8px;">
         <div class="setting-label">Wasserziel</div>
@@ -277,6 +293,7 @@ try {
       <button class="btn-link" id="resetTargets">Alle Übungen auf Standard zurücksetzen</button>
     </div>
 
+    <h2 class="section-label">Daten &amp; App</h2>
     <div class="setting-block">
       <div class="setting-label">App-Updates</div>
       <div class="setting-sub">Erzwingt eine frische Version, falls das Handy noch eine alte Version zeigt</div>

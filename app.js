@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '1.13.0 · 2026-09-13';
+const APP_VERSION = '1.14.0 · 2026-09-13';
 
 /* ============================================================
    CONFIG
@@ -567,7 +567,7 @@ function renderExtraCards() {
           <button class="step-btn" data-act="plus" aria-label="Mehr">+</button>
         </div>
       </div>
-      ${weeklyGoal ? `<div class="bar"><div class="bar-fill ${wDone ? 'over' : ''}" style="width:${wPct}%"></div></div>` : ''}
+      ${weeklyGoal ? `<div class="bar-row"><span class="bar-tag">Woche</span><div class="bar"><div class="bar-fill ${wDone ? 'over' : ''}" style="width:${wPct}%"></div></div></div>` : ''}
       ${quick.length ? `<div class="card-quick">${quick.map(v => `<button type="button" data-amt="${v}">+${fmtNum(v)} ${ex.unit}</button>`).join('')}<button type="button" data-act="edit">✎ eingeben</button></div>` : ''}
     `;
     card.querySelector('[data-act="plus"]').addEventListener('click', () => bump(ex, stepAmount(ex)));
@@ -1009,11 +1009,11 @@ $('#heatmapPrev').addEventListener('click', () => { heatmapMonthOffset--; render
 $('#heatmapNext').addEventListener('click', () => { if (heatmapMonthOffset < 0) { heatmapMonthOffset++; renderHeatmap(); } });
 
 function renderPerExercise() {
-  const week = rangeKeys(7);
+  const wk = currentWeekStartKey();
   const wrap = $('#perExercise');
   wrap.innerHTML = '';
   goalExercises().forEach(ex => {
-    const total = week.reduce((s, k) => s + getVal(k, ex.id), 0);
+    const total = weekSum(wk, ex.id);
     const targetWeek = ex.target * 7;
     const pct = Math.min(100, Math.round((total / targetWeek) * 100));
     const row = el('div', 'pe-row');
@@ -1026,12 +1026,12 @@ function renderPerExercise() {
 }
 
 function renderExtraStats() {
-  const week = rangeKeys(7);
+  const wk = currentWeekStartKey();
   const month = rangeKeys(30);
   const wrap = $('#extraStats');
   wrap.innerHTML = '';
   extraExercises().forEach(ex => {
-    const weekTotal = week.reduce((s, k) => s + getVal(k, ex.id), 0);
+    const weekTotal = weekSum(wk, ex.id);
     const monthTotal = month.reduce((s, k) => s + getVal(k, ex.id), 0);
     const goalNote = ex.weeklyGoal ? ` · Ziel ${fmtNum(ex.weeklyGoal)} ${ex.unit}/Woche` : '';
     const row = el('div', 'pe-row');
@@ -1184,6 +1184,13 @@ function setActiveView(target) {
 }
 
 $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => setActiveView(btn.dataset.target)));
+
+$$('#analysisJumpNav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.dataset.jump);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
 
 /* ============================================================
    SHEETS
