@@ -519,6 +519,24 @@ input[type="time"]{
 
 .day-weight-title{ font-family: var(--font-display); font-size:17px; margin: 18px 0 8px; color: var(--weight); }
 
+/* ============ NOTIZ & STIMMUNG ============ */
+.card.is-note{ text-align:center; }
+.mood-row{ display:flex; gap:8px; justify-content:center; margin-bottom:12px; flex-wrap:wrap; }
+.mood-btn{
+  width:42px; height:42px; border-radius:50%; border:1px solid var(--line); background: var(--bg-card);
+  font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  filter: grayscale(1); opacity:.5; transition: filter .15s, opacity .15s, border-color .15s, transform .15s;
+}
+.mood-btn.mood-active{ filter:none; opacity:1; border-color: var(--accent-text); transform: scale(1.08); }
+.note-text{
+  font-size:13px; color: var(--text-faint); text-align:center; cursor:pointer; display:block;
+  border-bottom: 1.5px dashed var(--text-faint); padding-bottom:3px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.note-text.has-text{ color: var(--text); border-color: var(--line); }
+.day-note-title{ font-family: var(--font-display); font-size:17px; margin: 18px 0 8px; color: var(--accent-text); }
+.history-mood{ font-size:14px; }
+
 @media (min-width: 601px){
   .app{ padding-left: 28px; padding-right: 28px; }
 }
